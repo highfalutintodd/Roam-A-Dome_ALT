@@ -72,15 +72,47 @@ TEST(sensor_parser_rejects_malformed_frames) {
 }
 
 TEST(sensor_no_position_until_warmup_completes) {
+    // Moving dome: samples differ, so the stationary fast path stays out of it
+    // and the full 5-frame window must fill (legacy reported raw values from the
+    // very first sample).
     SensorRing sr;
     uint32_t now = 1000;
-    for (int i = 0; i < 4; ++i, now += kDt) {
-        frame(sr, 100, now);
-        CHECK(!sr.valid()); // legacy reported raw values for the first 6 samples
+    int degs[] = {100, 105, 110, 115};
+    for (int d : degs) {
+        frame(sr, d, now);
+        now += kDt;
+        CHECK(!sr.valid());
     }
-    frame(sr, 100, now);
+    frame(sr, 120, now);
     CHECK(sr.valid());
-    CHECK_EQ(sr.position(), 100);
+    CHECK(circularDistance(sr.position(), 110) <= 5); // median of the window
+}
+
+TEST(sensor_parked_dome_warms_up_in_three_heartbeats) {
+    // Stationary dome: the ring only heartbeats every 1000 ms, so warm-up must
+    // settle on 3 agreeing frames (~3 s), not wait ~5 s for the full window.
+    SensorRing sr;
+    uint32_t now = 1000;
+    frame(sr, 210, now);
+    frame(sr, 210, now + 1000);
+    CHECK(!sr.valid());
+    frame(sr, 210, now + 2000);
+    CHECK(sr.valid());
+    CHECK_EQ(sr.position(), 210);
+}
+
+TEST(sensor_parked_dome_stays_valid_on_heartbeat_cadence) {
+    // Frames every 1000 ms (the ring's parked resend interval) must never trip
+    // the staleness timeout (default 2500 ms).
+    uint32_t now;
+    SensorRing sr = warmedUp(90, &now);
+    for (int i = 0; i < 20; ++i) {
+        now += 1000;
+        frame(sr, 90, now);
+        sr.tick(now + 999); // just before the next heartbeat lands
+        CHECK(sr.valid());
+    }
+    CHECK_EQ(sr.stats().staleEvents, 0u);
 }
 
 // ------------------------------------------------------------------- glitch rejection
@@ -177,7 +209,7 @@ TEST(sensor_goes_stale_then_recovers_with_jump_flag) {
     CHECK(sr.valid());
     (void)sr.consumeJump();
 
-    sr.tick(now + 1500); // cable yanked: no frames past the 1000 ms timeout
+    sr.tick(now + 3000); // cable yanked: no frames past the 2500 ms timeout
     CHECK(sr.state() == SensorRing::State::kStale);
     CHECK(!sr.valid());
 

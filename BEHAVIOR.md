@@ -107,7 +107,7 @@ Sequences: `#DPS<n>:<steps>` store, `#DPL` list, `#DPD<n>` delete.
 | Command | Meaning | Default |
 |---|---|---|
 | `#DPMAXRPM<1-60>` | sensor plausibility gate: max physical dome RPM | 30 |
-| `#DPSENSTO<ms>` | sensor staleness timeout | 1000 |
+| `#DPSENSTO<ms>` | sensor staleness timeout (must exceed the ring's 1000 ms parked-heartbeat interval) | 2500 |
 | `#DPSENSN<n>` | consistent samples to confirm a position discontinuity | 3 |
 | `#DPDWELL<n>` | consecutive in-arc samples counted as "arrived" | 3 |
 | `#DPIDLE<ms>` | manual-neutral time before automation resumes | 3000 |
@@ -145,9 +145,13 @@ Sequences: `#DPS<n>:<steps>` store, `#DPL` list, `#DPD<n>` delete.
 ## 7. Sensor input contract
 
 Accepted frame: `#DP@<1-4 digits>\r\n`, value 0–359. Everything else is discarded and
-counted (`#DPSTATS`). Position becomes VALID only after the warm-up window fills
-(5 samples). No frames for `#DPSENSTO` ms → STALE: automation disabled, display shows
-`---`, one `&RAD,FAULT,SENSOR_STALE` emitted; recovery restarts warm-up.
+counted (`#DPSTATS`). The ring transmits on position change plus a heartbeat resend
+every 1000 ms when parked (`DomeSensorFirmware32.ino:22,336`) — so a stationary dome
+delivers ~1 frame/s and a moving dome many more. Position becomes VALID after the
+warm-up window fills (5 samples), or early after 3 agreeing samples (parked dome:
+valid in ~3 s, not ~5 s). No frames for `#DPSENSTO` ms (default 2500 — must clear the
+1000 ms heartbeat with margin) → STALE: automation disabled, display shows `---`, one
+`&RAD,FAULT,SENSOR_STALE` emitted; recovery restarts warm-up.
 
 Glitch rejection: a reading whose circular distance from the last accepted position
 exceeds `max_deg_per_ms × elapsed + 2°` (from `#DPMAXRPM`) is not applied until

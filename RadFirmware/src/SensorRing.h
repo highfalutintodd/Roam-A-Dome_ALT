@@ -15,7 +15,10 @@ namespace rad {
 
 struct SensorTuning {
     uint8_t maxRpm = 30;          // #DPMAXRPM: plausibility gate
-    uint16_t staleMs = 1000;      // #DPSENSTO: no-frame timeout
+    // The ring (DomeSensorFirmware32.ino:22,336) sends on change plus a heartbeat
+    // resend every 1000 ms when parked — the timeout must clear that cadence with
+    // margin or a stationary dome flaps between VALID and STALE.
+    uint16_t staleMs = 2500;      // #DPSENSTO: no-frame timeout
     uint8_t confirmSamples = 3;   // #DPSENSN: samples to accept a discontinuity
     uint8_t slackDeg = 2;         // fixed gate slack
     uint8_t jitterDeg = 3;        // pending-jump agreement window
@@ -81,6 +84,7 @@ class SensorRing {
             fState = State::kStale;
             fWarmCount = 0; // recovery restarts warm-up from scratch
             fPendingCount = 0;
+            ++fStats.staleEvents;
         }
     }
 
@@ -128,12 +132,28 @@ class SensorRing {
         fLastFrameMs = nowMs;
 
         // Warm-up: fill the median window before reporting anything (no legacy
-        // first-6-samples bypass).
+        // first-6-samples bypass). Fast path for a parked dome: the ring only
+        // heartbeats at 1 Hz when stationary, so waiting for 5 frames would take
+        // ~5 s — 3 agreeing frames are proof enough and seed the whole window.
         if (fWarmCount < kMedianWindow) {
             fWindow[fWarmCount++] = deg;
             fWindowIdx = fWarmCount % kMedianWindow;
-            if (fWarmCount == kMedianWindow) {
-                fPosition = circularMedian(fPosition);
+            bool settled = false;
+            if (fWarmCount >= 3 && fWarmCount < kMedianWindow) {
+                int16_t a = fWindow[fWarmCount - 1];
+                int16_t b = fWindow[fWarmCount - 2];
+                int16_t c = fWindow[fWarmCount - 3];
+                if (circularDistance(a, b) <= fTuning.jitterDeg &&
+                    circularDistance(a, c) <= fTuning.jitterDeg) {
+                    for (uint8_t i = fWarmCount; i < kMedianWindow; ++i)
+                        fWindow[i] = a;
+                    fWarmCount = kMedianWindow;
+                    fWindowIdx = 0;
+                    settled = true;
+                }
+            }
+            if (fWarmCount == kMedianWindow || settled) {
+                fPosition = circularMedian(deg);
                 fLastAcceptMs = nowMs;
                 fLastDelta = 0;
                 if (wasStale || fEverValid) {
