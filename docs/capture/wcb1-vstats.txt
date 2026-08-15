@@ -1,0 +1,500 @@
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.58,"i":-1.07,"p":-28.5,"soc":84.0,"ttg":1999,"ah":-4.8,"aux":null,"temp":null,"alarms":[],"age":165,"stale":true}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.56,"i":-0.82,"p":-21.7,"soc":83.8,"ttg":1495,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.56,"i":-0.81,"p":-21.5,"soc":83.8,"ttg":1492,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.56,"i":-0.81,"p":-21.5,"soc":83.8,"ttg":1492,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.56,"i":-0.82,"p":-21.7,"soc":83.8,"ttg":1489,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.81,"p":-21.5,"soc":83.8,"ttg":1487,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.82,"p":-21.7,"soc":83.8,"ttg":1482,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.8,"p":-21.3,"soc":83.8,"ttg":1481,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.82,"p":-21.8,"soc":83.8,"ttg":1479,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.81,"p":-21.6,"soc":83.8,"ttg":1477,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.81,"p":-21.5,"soc":83.8,"ttg":1477,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.8,"p":-21.3,"soc":83.8,"ttg":1479,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.81,"p":-21.5,"soc":83.8,"ttg":1479,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.81,"p":-21.5,"soc":83.7,"ttg":1479,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.81,"p":-21.6,"soc":83.7,"ttg":1480,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.55,"i":-0.79,"p":-21.0,"soc":83.7,"ttg":1481,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.81,"p":-21.6,"soc":83.7,"ttg":1480,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.81,"p":-21.4,"soc":83.7,"ttg":1482,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.81,"p":-21.6,"soc":83.7,"ttg":1482,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.81,"p":-21.6,"soc":83.7,"ttg":1480,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.81,"p":-21.6,"soc":83.7,"ttg":1480,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.81,"p":-21.6,"soc":83.7,"ttg":1480,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.82,"p":-21.7,"soc":83.7,"ttg":1478,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.82,"p":-21.7,"soc":83.7,"ttg":1476,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.54,"i":-0.8,"p":-21.1,"soc":83.7,"ttg":1475,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.83,"p":-21.9,"soc":83.7,"ttg":1474,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.81,"p":-21.5,"soc":83.6,"ttg":1474,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.81,"p":-21.5,"soc":83.6,"ttg":1472,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.8,"p":-21.1,"soc":83.6,"ttg":1473,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.82,"p":-21.9,"soc":83.6,"ttg":1472,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.81,"p":-21.4,"soc":83.6,"ttg":1473,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.81,"p":-21.4,"soc":83.6,"ttg":1474,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.79,"p":-21.1,"soc":83.6,"ttg":1476,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.81,"p":-21.4,"soc":83.6,"ttg":1476,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.8,"p":-21.3,"soc":83.6,"ttg":1477,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.8,"p":-21.3,"soc":83.6,"ttg":1479,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.81,"p":-21.4,"soc":83.6,"ttg":1481,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.81,"p":-21.4,"soc":83.6,"ttg":1481,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.8,"p":-21.2,"soc":83.6,"ttg":1482,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.53,"i":-0.8,"p":-21.2,"soc":83.6,"ttg":1483,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.81,"p":-21.5,"soc":83.5,"ttg":1483,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.81,"p":-21.5,"soc":83.5,"ttg":1483,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":11,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.81,"p":-21.4,"soc":83.5,"ttg":1482,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.81,"p":-21.6,"soc":83.5,"ttg":1482,"ah":-4.9,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.2,"soc":83.5,"ttg":1483,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.2,"soc":83.5,"ttg":1483,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":12,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.3,"soc":83.5,"ttg":1485,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.2,"soc":83.5,"ttg":1485,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.81,"p":-21.3,"soc":83.5,"ttg":1485,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.3,"soc":83.5,"ttg":1486,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.2,"soc":83.5,"ttg":1486,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.2,"soc":83.5,"ttg":1488,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.1,"soc":83.5,"ttg":1490,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.81,"p":-21.4,"soc":83.5,"ttg":1491,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.3,"soc":83.4,"ttg":1490,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.3,"soc":83.4,"ttg":1491,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.8,"p":-21.1,"soc":83.4,"ttg":1491,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.79,"p":-21.0,"soc":83.4,"ttg":1491,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.52,"i":-0.79,"p":-21.0,"soc":83.4,"ttg":1491,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.3,"soc":83.4,"ttg":1490,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.3,"soc":83.4,"ttg":1489,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.3,"soc":83.4,"ttg":1489,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.3,"soc":83.4,"ttg":1489,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.3,"soc":83.4,"ttg":1488,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.1,"soc":83.4,"ttg":1489,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.2,"soc":83.4,"ttg":1489,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.79,"p":-20.9,"soc":83.4,"ttg":1490,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.1,"soc":83.4,"ttg":1490,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.2,"soc":83.3,"ttg":1488,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.82,"p":-21.7,"soc":83.3,"ttg":1482,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.2,"soc":83.3,"ttg":1478,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.81,"p":-21.6,"soc":83.3,"ttg":1477,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.81,"p":-21.3,"soc":83.3,"ttg":1475,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.2,"soc":83.3,"ttg":1478,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.79,"p":-20.9,"soc":83.3,"ttg":1478,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.2,"soc":83.3,"ttg":1478,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.81,"p":-21.5,"soc":83.3,"ttg":1479,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.82,"p":-21.6,"soc":83.3,"ttg":1474,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.82,"p":-21.7,"soc":83.3,"ttg":1470,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.82,"p":-21.7,"soc":83.3,"ttg":1470,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.81,"p":-21.4,"soc":83.3,"ttg":1468,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.81,"p":-21.3,"soc":83.3,"ttg":1469,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.3,"soc":83.2,"ttg":1471,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.8,"p":-21.3,"soc":83.2,"ttg":1471,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.79,"p":-21.0,"soc":83.2,"ttg":1477,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.51,"i":-0.78,"p":-20.7,"soc":83.2,"ttg":1483,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-21.0,"soc":83.2,"ttg":1488,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.77,"p":-20.5,"soc":83.2,"ttg":1492,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-21.0,"soc":83.2,"ttg":1492,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-21.0,"soc":83.2,"ttg":1495,"ah":-5.0,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.78,"p":-20.7,"soc":83.2,"ttg":1497,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.77,"p":-20.5,"soc":83.2,"ttg":1500,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-20.9,"soc":83.2,"ttg":1500,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.8,"p":-21.1,"soc":83.2,"ttg":1501,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.78,"p":-20.7,"soc":83.2,"ttg":1503,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-20.9,"soc":83.2,"ttg":1504,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-20.9,"soc":83.2,"ttg":1503,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.8,"p":-21.1,"soc":83.1,"ttg":1505,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.78,"p":-20.6,"soc":83.1,"ttg":1506,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.81,"p":-21.4,"soc":83.1,"ttg":1500,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.82,"p":-21.9,"soc":83.1,"ttg":1498,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.82,"p":-21.7,"soc":83.1,"ttg":1488,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.82,"p":-21.7,"soc":83.1,"ttg":1481,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.8,"p":-21.1,"soc":83.1,"ttg":1482,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.8,"p":-21.1,"soc":83.1,"ttg":1482,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.81,"p":-21.6,"soc":83.1,"ttg":1483,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.81,"p":-21.5,"soc":83.1,"ttg":1481,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.81,"p":-21.4,"soc":83.1,"ttg":1479,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-20.9,"soc":83.1,"ttg":1477,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.81,"p":-21.3,"soc":83.1,"ttg":1477,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.82,"p":-21.7,"soc":83.1,"ttg":1475,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-20.9,"soc":83.0,"ttg":1474,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.79,"p":-20.9,"soc":83.0,"ttg":1474,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.8,"p":-21.3,"soc":83.0,"ttg":1474,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.5,"soc":83.0,"ttg":1475,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":83.0,"ttg":1475,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.5,"i":-0.79,"p":-20.9,"soc":83.0,"ttg":1476,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.3,"soc":83.0,"ttg":1476,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":83.0,"ttg":1473,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.4,"soc":83.0,"ttg":1473,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.3,"soc":83.0,"ttg":1473,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.3,"soc":83.0,"ttg":1473,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.87,"p":-23.0,"soc":83.0,"ttg":1461,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.79,"p":-20.9,"soc":83.0,"ttg":1460,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.5,"soc":82.9,"ttg":1461,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.5,"soc":82.9,"ttg":1461,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.82,"p":-21.7,"soc":82.9,"ttg":1462,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.79,"p":-20.9,"soc":82.9,"ttg":1465,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.3,"soc":82.9,"ttg":1465,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.79,"p":-21.0,"soc":82.9,"ttg":1467,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.9,"ttg":1467,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.5,"soc":82.9,"ttg":1468,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.9,"ttg":1467,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.79,"p":-20.8,"soc":82.9,"ttg":1468,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.83,"p":-21.9,"soc":82.9,"ttg":1466,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.4,"soc":82.9,"ttg":1467,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.9,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.9,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.9,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.3,"soc":82.8,"ttg":1468,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1468,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.8,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.3,"soc":82.8,"ttg":1468,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.8,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.8,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.82,"p":-21.7,"soc":82.8,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1471,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.78,"p":-20.7,"soc":82.8,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.2,"soc":82.8,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.2,"soc":82.7,"ttg":1471,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.3,"soc":82.7,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.79,"p":-20.9,"soc":82.7,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+--- End of history, live output follows ---
+Connected to /dev/ttyUSB0 at 115200 baud (always-on)
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.9,"ttg":1467,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.5,"soc":82.9,"ttg":1468,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.9,"ttg":1467,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.79,"p":-20.8,"soc":82.9,"ttg":1468,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.83,"p":-21.9,"soc":82.9,"ttg":1466,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.81,"p":-21.4,"soc":82.9,"ttg":1467,"ah":-5.1,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.9,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.9,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.9,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.3,"soc":82.8,"ttg":1468,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1468,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":2,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.8,"ttg":1467,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.3,"soc":82.8,"ttg":1468,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.8,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.2,"soc":82.8,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":10,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.82,"p":-21.7,"soc":82.8,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.8,"p":-21.1,"soc":82.8,"ttg":1471,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.49,"i":-0.78,"p":-20.7,"soc":82.8,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.2,"soc":82.8,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.2,"soc":82.7,"ttg":1471,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":4,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.3,"soc":82.7,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":1,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.79,"p":-20.9,"soc":82.7,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+> ?BACKUP
+*** ========================================
+*** WCB Configuration Backup
+*** Copy and paste these commands to restore
+*** ========================================
+?HW,21
+?MAC,2,3C
+?MAC,3,4E
+?WCB,1
+?ALIAS,Body
+?WCBQ,3
+?WCBCH,1
+?PEERSLIVE,2
+?EPASS,deepthought
+?CMDCHAR,;
+?BAUD,S1,57600
+?BAUD,S2,9600
+?BAUD,S3,9600
+?BAUD,S4,9600
+?BAUD,S5,9600
+?LABEL,S1,Maestro 1
+?LABEL,S2,Roam-A-Dome
+?LABEL,S3,DroidNet (Power Only)
+?LABEL,S4,Sabé
+?LABEL,S5,H-CR
+?BCAST,OUT,S1,OFF
+?BCAST,OUT,S2,ON
+?BCAST,OUT,S3,ON
+?BCAST,OUT,S4,ON
+?BCAST,OUT,S5,ON
+?BCAST,OUT,S0,OFF
+?BCAST,IN,S1,OFF
+?BCAST,IN,S2,ON
+?BCAST,IN,S3,ON
+?BCAST,IN,S4,OFF
+?BCAST,IN,S5,ON
+?MAP,SERIAL,S4,R,S0
+?MAESTRO,REMOTE
+?MAESTRO,M1:W1S1:57600
+?MAESTRO,M2:W2S1:57600
+?MAESTRO,M3:W3S1:57600
+?ETM,ON
+?ETM,TIMEOUT,500
+?ETM,HB,10
+?ETM,MISS,3
+?ETM,BOOT,2
+?ETM,COUNT,20
+?ETM,DELAY,100
+?ETM,CHKSM,ON
+?CONTROLLER,ON,20
+?SEQ,SAVE,01,***Happy Wave^<SH1>^;M101
+?SEQ,SAVE,02,<SH0>^;M308
+?SEQ,SAVE,03,<SC0>^;M309
+?SEQ,SAVE,04,<SH0>^;M310
+?SEQ,SAVE,05,<MT>
+?SEQ,SAVE,06,<SM1>^;M307
+?SEQ,SAVE,07,<SM0>
+?SEQ,SAVE,08,:DPA30,100:W1:A270,100:W1:A90,100:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102
+?SEQ,SAVE,09,<SC1>^A0041|2^4T5|2^~RTLE71002^;M300^;M100
+?SEQ,SAVE,10,;M201
+?SEQ,SAVE,11,<CA0010>^:DPA80,50:W20:H^0T10^A0042|10^~RTLE63310^;M306^;M200
+?SEQ,SAVE,12,#DPAUTO0^:DPA320,50^;M304^;M202
+?SEQ,SAVE,13,<CA0000>^0T6^A001|34
+?SEQ,SAVE,14,<PSV,PSA>^0T1^S9
+?SEQ,SAVE,15,;M204
+?SEQ,SAVE,16,#DPAUTO0
+?SEQ,SAVE,17,#DPAUTO1
+?SEQ,SAVE,18,:DPA260,50:W20:H^;M312^;M205^<SH1>
+?SEQ,SAVE,19,***K-ARDS Lift Sequence^#DPAUTO0^:DPA323,50^;M313^;M206^<CA1011>
+?SEQ,SAVE,20,***Leia Hologram Sequence^#DPAUTO0^:DPA22,50^;M314^;T1000,^0T6^A001|42^;M208^<CA1021>^;W2;S4,:PP100,50:W42:P0
+?SEQ,SAVE,21,***Primes the Hologram Lifter^;M309^;T1000,^;W2;S4,:PP100:W1:P0
+?SEQ,SAVE,CMD1,<SH1>^;M101
+?SEQ,SAVE,CMD2,<SH0>^;M308
+?SEQ,SAVE,CMD3,<SC0>^;M309
+?SEQ,SAVE,CMD4,<SH0>^;M310
+?SEQ,SAVE,CMD5,<MT>
+?SEQ,SAVE,CMD6,<SM1>^;M307^00:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102
+?SEQ,SAVE,CMD7,<SM0>
+?SEQ,SAVE,CMD8,:DPA30,100:W1:A270,100:W1:A90,100:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102
+?SEQ,SAVE,CMD9,<SC1>^A0041|2^4T5|2^~RTLE71002^;M300^;M100
+?SEQ,SAVE,CMD10,;M201
+?SEQ,SAVE,CMD11,<CA0010>^:DPA140,50:W20:H^0T10^A0042|10^~RTLE63310^;M306^;M200
+?SEQ,SAVE,CMD12,#DPAUTO0^:DPA320,50^;M304^;M202
+?SEQ,SAVE,CMD13,<CA0000>^0T6^A001|34
+?SEQ,SAVE,CMD14,<PSV,PSA>^0T1^S9
+?SEQ,SAVE,CMD15,;M204
+?SEQ,SAVE,CMD16,#DPAUTO0
+?SEQ,SAVE,CMD17,#DPAUTO1
+?SEQ,SAVE,CMD18,:DPA260,50:W20:H^;M312^;M205^<SH1>
+?SEQ,SAVE,CMD19,;M313^;M206^<CA1011>
+?SEQ,SAVE,CMD20,<CA1100>
+?SEQ,SAVE,CMD21,<CA1101>
+?SEQ,SAVE,CMD22,<CA1102>
+?SEQ,SAVE,CMD23,<CA1103>
+?SEQ,SAVE,CMD24,<CA1104>
+?SEQ,SAVE,CMD25,<CA1105>
+?SEQ,SAVE,CMD26,<CA1106>
+?SEQ,SAVE,CMD27,<CA1107>
+?SEQ,SAVE,CMD28,<CA1108>
+?SEQ,SAVE,CMD29,<CA1109>
+?SEQ,SAVE,CMD30,<CA1110>
+*** === For Configured Boards (Current Delimiter: '^') ===
+?HW,21^?MAC,2,3C^?MAC,3,4E^?WCB,1^?ALIAS,Body^?WCBQ,3^?WCBCH,1^?EPASS,deepthought^?CMDCHAR,;^?BAUD,S1,57600^?BAUD,S2,9600^?BAUD,S3,9600^?BAUD,S4,9600^?BAUD,S5,9600^?LABEL,S1,Maestro 1^?LABEL,S2,Roam-A-Dome^?LABEL,S3,DroidNet (Power Only)^?LABEL,S4,Sabé^?LABEL,S5,H-CR^?BCAST,OUT,S1,OFF^?BCAST,OUT,S2,ON^?BCAST,OUT,S3,ON^?BCAST,OUT,S4,ON^?BCAST,OUT,S5,ON^?BCAST,OUT,S0,OFF^?BCAST,IN,S1,OFF^?BCAST,IN,S2,ON^?BCAST,IN,S3,ON^?BCAST,IN,S4,OFF^?BCAST,IN,S5,ON^?MAP,SERIAL,S4,R,S0^?MAESTRO,REMOTE^?MAESTRO,M1:W1S1:57600^?MAESTRO,M2:W2S1:57600^?MAESTRO,M3:W3S1:57600^?ETM,ON^?ETM,TIMEOUT,500^?ETM,HB,10^?ETM,MISS,3^?ETM,BOOT,2^?ETM,COUNT,20^?ETM,DELAY,100^?ETM,CHKSM,ON^?CONTROLLER,ON,20^?SEQ,SAVE,01,***Happy Wave^<SH1>^;M101^?SEQ,SAVE,02,<SH0>^;M308^?SEQ,SAVE,03,<SC0>^;M309^?SEQ,SAVE,04,<SH0>^;M310^?SEQ,SAVE,05,<MT>^?SEQ,SAVE,06,<SM1>^;M307^?SEQ,SAVE,07,<SM0>^?SEQ,SAVE,08,:DPA30,100:W1:A270,100:W1:A90,100:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102^?SEQ,SAVE,09,<SC1>^A0041|2^4T5|2^~RTLE71002^;M300^;M100^?SEQ,SAVE,10,;M201^?SEQ,SAVE,11,<CA0010>^:DPA80,50:W20:H^0T10^A0042|10^~RTLE63310^;M306^;M200^?SEQ,SAVE,12,#DPAUTO0^:DPA320,50^;M304^;M202^?SEQ,SAVE,13,<CA0000>^0T6^A001|34^?SEQ,SAVE,14,<PSV,PSA>^0T1^S9^?SEQ,SAVE,15,;M204^?SEQ,SAVE,16,#DPAUTO0^?SEQ,SAVE,17,#DPAUTO1^?SEQ,SAVE,18,:DPA260,50:W20:H^;M312^;M205^<SH1>^?SEQ,SAVE,19,***K-ARDS Lift Sequence^#DPAUTO0^:DPA323,50^;M313^;M206^<CA1011>^?SEQ,SAVE,20,***Leia Hologram Sequence^#DPAUTO0^:DPA22,50^;M314^;T1000,^0T6^A001|42^;M208^<CA1021>^;W2;S4,:PP100,50:W42:P0^?SEQ,SAVE,21,***Primes the Hologram Lifter^;M309^;T1000,^;W2;S4,:PP100:W1:P0^?SEQ,SAVE,CMD1,<SH1>^;M101^?SEQ,SAVE,CMD2,<SH0>^;M308^?SEQ,SAVE,CMD3,<SC0>^;M309^?SEQ,SAVE,CMD4,<SH0>^;M310^?SEQ,SAVE,CMD5,<MT>^?SEQ,SAVE,CMD6,<SM1>^;M307^00:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102^?SEQ,SAVE,CMD7,<SM0>^?SEQ,SAVE,CMD8,:DPA30,100:W1:A270,100:W1:A90,100:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102^?SEQ,SAVE,CMD9,<SC1>^A0041|2^4T5|2^~RTLE71002^;M300^;M100^?SEQ,SAVE,CMD10,;M201^?SEQ,SAVE,CMD11,<CA0010>^:DPA140,50:W20:H^0T10^A0042|10^~RTLE63310^;M306^;M200^?SEQ,SAVE,CMD12,#DPAUTO0^:DPA320,50^;M304^;M202^?SEQ,SAVE,CMD13,<CA0000>^0T6^A001|34^?SEQ,SAVE,CMD14,<PSV,PSA>^0T1^S9^?SEQ,SAVE,CMD15,;M204^?SEQ,SAVE,CMD16,#DPAUTO0^?SEQ,SAVE,CMD17,#DPAUTO1^?SEQ,SAVE,CMD18,:DPA260,50:W20:H^;M312^;M205^<SH1>^?SEQ,SAVE,CMD19,;M313^;M206^<CA1011>^?SEQ,SAVE,CMD20,<CA1100>^?SEQ,SAVE,CMD21,<CA1101>^?SEQ,SAVE,CMD22,<CA1102>^?SEQ,SAVE,CMD23,<CA1103>^?SEQ,SAVE,CMD24,<CA1104>^?SEQ,SAVE,CMD25,<CA1105>^?SEQ,SAVE,CMD26,<CA1106>^?SEQ,SAVE,CMD27,<CA1107>^?SEQ,SAVE,CMD28,<CA1108>^?SEQ,SAVE,CMD29,<CA1109>^?SEQ,SAVE,CMD30,<CA1110>^?CHK5D045600
+*** Checksum: ?CHK5D045600
+*** === For Factory Reset/Fresh Boards (Uses Default '^' Delimiter) ===
+?HW,21^?MAC,2,3C^?MAC,3,4E^?WCB,1^?ALIAS,Body^?WCBQ,3^?WCBCH,1^?PEERSLIVE,2^?EPASS,deepthought^?CMDCHAR,;^?BAUD,S1,57600^?BAUD,S2,9600^?BAUD,S3,9600^?BAUD,S4,9600^?BAUD,S5,9600^?LABEL,S1,Maestro 1^?LABEL,S2,Roam-A-Dome^?LABEL,S3,DroidNet (Power Only)^?LABEL,S4,Sabé^?LABEL,S5,H-CR^?BCAST,OUT,S1,OFF^?BCAST,OUT,S2,ON^?BCAST,OUT,S3,ON^?BCAST,OUT,S4,ON^?BCAST,OUT,S5,ON^?BCAST,OUT,S0,OFF^?BCAST,IN,S1,OFF^?BCAST,IN,S2,ON^?BCAST,IN,S3,ON^?BCAST,IN,S4,OFF^?BCAST,IN,S5,ON^?MAP,SERIAL,S4,R,S0^?MAESTRO,REMOTE^?MAESTRO,M1:W1S1:57600^?MAESTRO,M2:W2S1:57600^?MAESTRO,M3:W3S1:57600^?ETM,ON^?ETM,TIMEOUT,500^?ETM,HB,10^?ETM,MISS,3^?ETM,BOOT,2^?ETM,COUNT,20^?ETM,DELAY,100^?ETM,CHKSM,ON^?CONTROLLER,ON,20^?SEQ,SAVE,01,***Happy Wave^<SH1>^;M101^?SEQ,SAVE,02,<SH0>^;M308^?SEQ,SAVE,03,<SC0>^;M309^?SEQ,SAVE,04,<SH0>^;M310^?SEQ,SAVE,05,<MT>^?SEQ,SAVE,06,<SM1>^;M307^?SEQ,SAVE,07,<SM0>^?SEQ,SAVE,08,:DPA30,100:W1:A270,100:W1:A90,100:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102^?SEQ,SAVE,09,<SC1>^A0041|2^4T5|2^~RTLE71002^;M300^;M100^?SEQ,SAVE,10,;M201^?SEQ,SAVE,11,<CA0010>^:DPA80,50:W20:H^0T10^A0042|10^~RTLE63310^;M306^;M200^?SEQ,SAVE,12,#DPAUTO0^:DPA320,50^;M304^;M202^?SEQ,SAVE,13,<CA0000>^0T6^A001|34^?SEQ,SAVE,14,<PSV,PSA>^0T1^S9^?SEQ,SAVE,15,;M204^?SEQ,SAVE,16,#DPAUTO0^?SEQ,SAVE,17,#DPAUTO1^?SEQ,SAVE,18,:DPA260,50:W20:H^;M312^;M205^<SH1>^?SEQ,SAVE,19,***K-ARDS Lift Sequence^#DPAUTO0^:DPA323,50^;M313^;M206^<CA1011>^?SEQ,SAVE,20,***Leia Hologram Sequence^#DPAUTO0^:DPA22,50^;M314^;T1000,^0T6^A001|42^;M208^<CA1021>^;W2;S4,:PP100,50:W42:P0^?SEQ,SAVE,21,***Primes the Hologram Lifter^;M309^;T1000,^;W2;S4,:PP100:W1:P0^?SEQ,SAVE,CMD1,<SH1>^;M101^?SEQ,SAVE,CMD2,<SH0>^;M308^?SEQ,SAVE,CMD3,<SC0>^;M309^?SEQ,SAVE,CMD4,<SH0>^;M310^?SEQ,SAVE,CMD5,<MT>^?SEQ,SAVE,CMD6,<SM1>^;M307^00:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102^?SEQ,SAVE,CMD7,<SM0>^?SEQ,SAVE,CMD8,:DPA30,100:W1:A270,100:W1:A90,100:W1:A180,100:W1:A10,100:W1:A350,100:W1:A170,100:W1^~RTLE71009^4T5|10^5T5|10^<SE>^;M303^F007|10^;M203^;M102^?SEQ,SAVE,CMD9,<SC1>^A0041|2^4T5|2^~RTLE71002^;M300^;M100^?SEQ,SAVE,CMD10,;M201^?SEQ,SAVE,CMD11,<CA0010>^:DPA140,50:W20:H^0T10^A0042|10^~RTLE63310^;M306^;M200^?SEQ,SAVE,CMD12,#DPAUTO0^:DPA320,50^;M304^;M202^?SEQ,SAVE,CMD13,<CA0000>^0T6^A001|34^?SEQ,SAVE,CMD14,<PSV,PSA>^0T1^S9^?SEQ,SAVE,CMD15,;M204^?SEQ,SAVE,CMD16,#DPAUTO0^?SEQ,SAVE,CMD17,#DPAUTO1^?SEQ,SAVE,CMD18,:DPA260,50:W20:H^;M312^;M205^<SH1>^?SEQ,SAVE,CMD19,;M313^;M206^<CA1011>^?SEQ,SAVE,CMD20,<CA1100>^?SEQ,SAVE,CMD21,<CA1101>^?SEQ,SAVE,CMD22,<CA1102>^?SEQ,SAVE,CMD23,<CA1103>^?SEQ,SAVE,CMD24,<CA1104>^?SEQ,SAVE,CMD25,<CA1105>^?SEQ,SAVE,CMD26,<CA1106>^?SEQ,SAVE,CMD27,<CA1107>^?SEQ,SAVE,CMD28,<CA1108>^?SEQ,SAVE,CMD29,<CA1109>^?SEQ,SAVE,CMD30,<CA1110>^?CHK0246EA68
+*** Checksum: ?CHK0246EA68
+--------- End of Backup ---------
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.2,"soc":82.7,"ttg":1472,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":8,"stale":false}
+> ?ETM,CHKSM
+Use: ?ETM,CHKSM,ON or ?ETM,CHKSM,OFF
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.1,"soc":82.7,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":5,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.2,"soc":82.7,"ttg":1470,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+> ?ETM,CHKSM,ON
+ETM checksum verification enabled
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.82,"p":-21.7,"soc":82.7,"ttg":1469,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+> ?WCBCH
+Invalid mesh channel 0. Valid range: 1-11.
+> ?WCBCH,1
+Mesh channel saved as 1 — reboot to apply. Move ALL WCBs + clients to this channel together (one radio = one channel).
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.81,"p":-21.4,"soc":82.7,"ttg":1469,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.2,"soc":82.7,"ttg":1469,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":6,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.3,"soc":82.7,"ttg":1468,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":3,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.81,"p":-21.4,"soc":82.7,"ttg":1466,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":0,"stale":false}
+> ?WCBM
+Invalid WCB number 0. Valid range: 1-20.
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.81,"p":-21.5,"soc":82.7,"ttg":1465,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":9,"stale":false}
+?VSTATS
+> {"ok":true,"t":"vstats","v":26.48,"i":-0.8,"p":-21.3,"soc":82.7,"ttg":1464,"ah":-5.2,"aux":null,"temp":null,"alarms":[],"age":7,"stale":false}

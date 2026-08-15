@@ -1,0 +1,5 @@
+[   471][V][Preferences.cpp:352] getUChar(): nvs_get_u8 fail: remote NOT_FOUND
+Droid Dome Controller - Mar 21 2024 - ESP: [2.0.5]
+Source: https://github.com/reeltwo/DomeControlFirmware/tree/2b07e71
+ReelTwo: https://github.com/reeltwo/Reeltwo/tree/190420e
+Settings Restored

@@ -12,6 +12,7 @@ Requires: pip install pyserial
 import argparse
 import glob
 import pathlib
+import re
 import sys
 import time
 
@@ -20,6 +21,13 @@ try:
 except ImportError:
     sys.exit("pyserial is required: pip3 install pyserial")
 
+# ESP32 core debug spam, e.g. "[  5035][D][esp32-hal-rmt.c:202] _rmtRxTask(): ..."
+DEBUG_LINE = re.compile(r"^\[\s*\d+\]\[[VDIWE]\]")
+
+
+def strip_debug(text: str) -> str:
+    return "\n".join(l for l in text.splitlines() if not DEBUG_LINE.match(l)).strip()
+
 
 def open_port(pattern: str, baud: int) -> "serial.Serial":
     matches = sorted(glob.glob(pattern)) if any(c in pattern for c in "*?[") else [pattern]
@@ -27,18 +35,14 @@ def open_port(pattern: str, baud: int) -> "serial.Serial":
         sys.exit(f"no serial port matches {pattern!r}")
     port = matches[0]
     print(f"opening {port} @ {baud}")
-    s = serial.Serial(port, baud, timeout=0.25)
-    time.sleep(2.0)  # ESP32 resets on port open; let it boot
-    s.reset_input_buffer()
-    return s
+    return serial.Serial(port, baud, timeout=0.25)
 
 
-def send_and_collect(s, command: str, quiet_ms: int = 1200) -> str:
-    """Send one command line and collect output until the port goes quiet."""
-    s.write((command + "\r").encode())
-    s.flush()
-    out, last = [], time.monotonic()
-    while (time.monotonic() - last) * 1000 < quiet_ms:
+def collect_until_quiet(s, quiet_s: float, max_s: float) -> str:
+    """Collect output until the port has been quiet for quiet_s (cap max_s)."""
+    out = []
+    start = last = time.monotonic()
+    while time.monotonic() - last < quiet_s and time.monotonic() - start < max_s:
         chunk = s.read(4096)
         if chunk:
             out.append(chunk.decode(errors="replace"))
@@ -46,22 +50,39 @@ def send_and_collect(s, command: str, quiet_ms: int = 1200) -> str:
     return "".join(out)
 
 
+def send_and_collect(s, command: str, quiet_ms: int = 1500) -> str:
+    """Send one command line and collect output until the port goes quiet."""
+    s.write((command + "\r").encode())
+    s.flush()
+    return collect_until_quiet(s, quiet_ms / 1000.0, max_s=20)
+
+
 def capture(s, outdir: pathlib.Path) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
 
-    print("capturing boot banner (press the board's RESET button now, 5s)...")
-    banner, deadline = [], time.monotonic() + 5
-    while time.monotonic() < deadline:
-        chunk = s.read(4096)
-        if chunk:
-            banner.append(chunk.decode(errors="replace"))
-    (outdir / "boot_banner.txt").write_text("".join(banner))
+    # Opening the port auto-resets the board. The legacy firmware takes ~5-10 s to
+    # boot and streams debug logging continuously, so wait for the boot flood to
+    # settle before sending anything.
+    print("board is booting; capturing banner until output settles (up to 30 s)...")
+    banner = collect_until_quiet(s, quiet_s=2.5, max_s=30)
+    (outdir / "boot_banner.txt").write_text(banner)
+    if "Droid Dome Controller" in banner or "Roam-A-Dome" in banner:
+        print("  boot banner captured.")
+    else:
+        print("  warning: no recognizable banner — output may still be flooded.")
 
     for name, cmd in [("config", "#DPCONFIG"), ("status", "#DPSTATUS"), ("sequences", "#DPL")]:
-        print(f"running {cmd} ...")
-        text = send_and_collect(s, cmd)
-        (outdir / f"{name}.txt").write_text(text)
-        print(text.strip()[:2000] or "(no output)")
+        # Continuous debug logging means the port never truly goes quiet, so retry
+        # until the response contains non-debug content.
+        for attempt in range(1, 4):
+            print(f"running {cmd} (attempt {attempt}) ...")
+            raw = send_and_collect(s, cmd)
+            useful = strip_debug(raw)
+            if useful:
+                break
+            time.sleep(1.0)
+        (outdir / f"{name}.txt").write_text(useful + "\n" if useful else raw)
+        print(useful[:2000] or "(no output — saved raw)")
 
     print(f"\ncaptured to {outdir}/ — commit these files (they are the migration data).")
 
