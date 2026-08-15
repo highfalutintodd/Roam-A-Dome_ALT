@@ -31,6 +31,19 @@ void CommandExec::execute(const Command& cmd, Print& reply) {
     case CmdId::kStatus:
         reply.printf("Roam-A-Dome v2 %s\n", RAD_FW_VERSION);
         reply.printf("Uptime: %lus\n", static_cast<unsigned long>(millis() / 1000));
+        if (fSensor != nullptr) {
+            switch (fSensor->state()) {
+            case SensorRing::State::kValid:
+                reply.printf("Sensor: OK, position %d\n", fSensor->position());
+                break;
+            case SensorRing::State::kWarmup:
+                reply.println(F("Sensor: warming up (no frames yet?)"));
+                break;
+            case SensorRing::State::kStale:
+                reply.println(F("Sensor: STALE — check cable/power"));
+                break;
+            }
+        }
         break;
     case CmdId::kStats:
         if (fStats != nullptr) {
@@ -39,6 +52,13 @@ void CommandExec::execute(const Command& cmd, Print& reply) {
             reply.printf("InvalidLines=%lu\n", (unsigned long)fStats->invalidLines);
             reply.printf("LineOverflows=%lu\n", (unsigned long)fStats->lineOverflows);
             reply.printf("SyrenChecksumErrors=%lu\n", (unsigned long)fStats->syrenChecksumErrors);
+        }
+        if (fSensor != nullptr) {
+            const SensorRing::Stats& ss = fSensor->stats();
+            reply.printf("SensorAccepted=%lu\n", (unsigned long)ss.accepted);
+            reply.printf("SensorRejectedParse=%lu\n", (unsigned long)ss.rejectedParse);
+            reply.printf("SensorRejectedRate=%lu\n", (unsigned long)ss.rejectedRate);
+            reply.printf("SensorJumps=%lu\n", (unsigned long)ss.jumps);
         }
         break;
     case CmdId::kRestart:

@@ -3,6 +3,7 @@
 #ifdef ARDUINO
 
 #include "Command.h"
+#include "SensorRing.h"
 #include "Settings.h"
 
 #include <Arduino.h>
@@ -19,10 +20,12 @@ struct RuntimeStats {
 
 class CommandExec {
   public:
-    void begin(RadSettings* settings, RadSettingsStore* store, RuntimeStats* stats) {
+    void begin(RadSettings* settings, RadSettingsStore* store, RuntimeStats* stats,
+               const SensorRing* sensor) {
         fSettings = settings;
         fStore = store;
         fStats = stats;
+        fSensor = sensor;
     }
 
     // Execute one parsed line; human-readable response goes to `reply`.
@@ -38,6 +41,7 @@ class CommandExec {
     RadSettings* fSettings = nullptr;
     RadSettingsStore* fStore = nullptr;
     RuntimeStats* fStats = nullptr;
+    const SensorRing* fSensor = nullptr;
 };
 
 } // namespace rad

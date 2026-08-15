@@ -1,7 +1,9 @@
 CXX ?= c++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -g
 
-SRCS = test_main.cpp ../../src/CommandParser.cpp
+SRCS = test_main.cpp test_sensor.cpp ../../src/CommandParser.cpp
+HDRS = ../../src/Command.h ../../src/LineAssembler.h ../../src/SyrenCodec.h \
+       ../../src/CircularMath.h ../../src/SensorRing.h rad_test.h
 BIN = rad_tests
 
 .PHONY: test clean
@@ -9,7 +11,7 @@ BIN = rad_tests
 test: $(BIN)
 	./$(BIN)
 
-$(BIN): $(SRCS) ../../src/Command.h ../../src/LineAssembler.h ../../src/SyrenCodec.h rad_test.h
+$(BIN): $(SRCS) $(HDRS)
 	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
 
 clean:
