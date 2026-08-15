@@ -1,15 +1,6 @@
-# OS generated files #
-######################
-*.*.bak
-*.orig
-*.sublime-workspace
-._*
-.build
-.lib
-*build_version.h
-requirements.txt
 .DS_Store
-.DS_Store?
-.Spotlight-V100
-.Trashes
-.vs/
+About Roam-A-Dome.rtfd/
+*.pyc
+__pycache__/
+releases/*.bin
+docs/capture/*.log
