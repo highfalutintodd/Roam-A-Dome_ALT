@@ -102,9 +102,24 @@ static void driveMotor(int8_t wire, uint32_t now) {
 // Learn drive polarity from manual motion: correlate the wire command with the
 // validated sensor delta. ±10 degrees of consistent evidence locks it in;
 // contradicting evidence can re-flip it later (belt slip, rewiring).
-static void learnPolarity() {
+static void learnPolarity(uint32_t now) {
     static uint32_t sLastAccepted = 0;
     static int32_t sAccum = 0;
+    static int8_t sPrevSign = 0;
+    static uint32_t sSignChangedAt = 0;
+
+    // The dome coasts the old way for a moment after every stick reversal, which
+    // reads as contradictory evidence — ignore samples until the command
+    // direction has been stable for a while (field log showed 7 [DIR] flips
+    // during back-and-forth jogging).
+    int8_t sign = sWirePct > 0 ? 1 : (sWirePct < 0 ? -1 : 0);
+    if (sign != sPrevSign) {
+        sPrevSign = sign;
+        sSignChangedAt = now;
+    }
+    if (sign == 0 || now - sSignChangedAt < 400)
+        return;
+
     uint32_t accepted = sSensor.stats().accepted;
     if (accepted == sLastAccepted || !sSensor.valid())
         return;
@@ -228,7 +243,7 @@ void loop() {
         wire = static_cast<int8_t>(autoPct * dir);
     }
     driveMotor(wire, now);
-    learnPolarity();
+    learnPolarity(now);
 
     // Live telemetry (#DPDEBUG1), ~4 Hz.
     if (sStats.debug) {
