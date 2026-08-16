@@ -7,6 +7,7 @@
 #include "src/LineAssembler.h"
 #include "src/MotionController.h"
 #include "src/PinBank.h"
+#include "src/PolarityStore.h"
 #include "src/PwmIO.h"
 #include "src/RadVersion.h"
 #include "src/SensorRing.h"
@@ -46,6 +47,7 @@ static MotionController sMotion(inclusiveRandom);
 static Sequencer sSeq(inclusiveRandom);
 static SeqStore sSeqStore;
 static PinBank sPins;
+static PolarityStore sPolarity;
 static CommandExec sExec;
 static SyrenBus sSyren;
 static PwmIO sPwm;
@@ -57,6 +59,10 @@ static LineAssembler sCmdLine;
 #ifdef RAD_USE_DISPLAY
 static DisplayS3 sDisplay;
 #endif
+
+// Motor sign state; see the motor-output section below for the two conventions.
+static int8_t sWirePct = 0;   // last wire-level command actually sent
+static int8_t sDirSign = 0;   // learned wire->degrees sign; 0 = not yet learned
 
 void setup() {
     Serial.begin(115200);
@@ -80,8 +86,15 @@ void setup() {
 #endif
     gWcb.begin(sSettings, RAD_FW_VERSION);
 
+    // Restore learned drive polarity: without it the first automated move after
+    // every boot runs on the #DPINVERT guess, which is backwards on some wiring.
+    sDirSign = sPolarity.load();
+
     Serial.printf("\nRoam-A-Dome v2 %s (%s)\n", RAD_FW_VERSION,
                   loaded ? "settings loaded" : "fresh defaults");
+    if (sDirSign != 0)
+        Serial.printf("[DIR] restored: positive wire %s degrees\n",
+                      sDirSign > 0 ? "increases" : "decreases");
     Serial.println("#DPCONFIG settings, #DPSTATUS state, :DPA<deg> to move.");
 }
 
@@ -96,9 +109,6 @@ void setup() {
 // Output is re-sent every 60 ms even when unchanged: Syren's serial-timeout
 // safety cuts the motor if packets stop (the "hold left and it stutters" bug).
 // ---------------------------------------------------------------------------
-static int8_t sWirePct = 0;   // last wire-level command actually sent
-static int8_t sDirSign = 0;   // learned wire->degrees sign; 0 = not yet learned
-
 static void driveMotor(int8_t wire, uint32_t now) {
     static int8_t sLast = 127;     // force first write
     static uint32_t sLastSent = 0;
@@ -146,12 +156,14 @@ static void learnPolarity(uint32_t now) {
         sAccum = 10;
         if (sDirSign != 1) {
             sDirSign = 1;
+            sPolarity.save(sDirSign); // survives reboots; re-learns if it ever flips
             Serial.println(F("[DIR] learned: positive wire increases degrees"));
         }
     } else if (sAccum <= -10) {
         sAccum = -10;
         if (sDirSign != -1) {
             sDirSign = -1;
+            sPolarity.save(sDirSign);
             Serial.println(F("[DIR] learned: positive wire decreases degrees"));
         }
     }

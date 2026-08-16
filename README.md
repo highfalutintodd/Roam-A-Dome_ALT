@@ -33,7 +33,8 @@ position sensor ring to know exactly where the dome is pointing.
   the serial ports or the mesh.
 - **Self-calibrating drive polarity.** Which way the motor has to turn to make the
   position reading go up is *learned* by watching the dome move under manual control,
-  so a closed-loop move can never run away from its target because of a swapped wire.
+  so a closed-loop move can never run away from its target because of a swapped wire —
+  and it's remembered across reboots, so the first move after power-up is right too.
 - **Big-number position display.** On the display controller, dome position fills the
   screen in seven-segment digits, with an idle backlight timeout (`#DPLCDSLEEP`) so a
   parked droid isn't glowing all evening.

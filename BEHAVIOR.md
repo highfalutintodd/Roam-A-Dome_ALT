@@ -178,6 +178,7 @@ instead of silently corrupting it.
 | D10 | SMQ Droid Remote and WiFi web UI removed/deferred | see §4 dropped table |
 | D11 | Manual input cancels a running sequence outright (console: `SEQUENCE CANCELLED`) | legacy only overrode the motor while the stick was deflected — the sequence resumed on release |
 | D12 | `#DPAUTO` and `#DPHOME` are runtime-only: always **off** at boot regardless of what is stored | legacy persisted both, so a droid could power up and immediately start moving its own dome because a mode was enabled days earlier — unexpected motion is a safety hazard, so idle automation must be armed by the current session |
+| D13 | Learned drive polarity persists across reboots (own NVS key, `[DIR] restored:` at boot; cleared by `#DPZERO`/`#DPFACTORY`) | it was RAM-only, so every boot restarted at "unknown" and the first automated move ran on the `#DPINVERT`-derived guess — measured travelling ~54° the wrong way on the bench before the learner corrected it |
 
 ## 9. Display (display board only)
 

@@ -117,6 +117,15 @@ increase is learned automatically by watching the dome move under manual
 control, so closed-loop moves can never chase a target the wrong way. The
 console prints `[DIR] learned: …` once it locks in.
 
+The result is **remembered across reboots** — later boots print
+`[DIR] restored: …` and the very first automated move is already correct.
+Until something has been learned, automation falls back to a guess derived from
+`#DPINVERT`, which may be backwards depending on how the motor is wired; if you
+ever see the dome set off the wrong way on a fresh controller, that is what
+you're watching, and it self-corrects within about 10° of movement. `#DPZERO`
+and `#DPFACTORY` clear the learned value along with everything else, and the
+learner will re-learn (and re-save) it if the wiring or belt ever changes.
+
 ## Modes and idle automation
 
 | Command | Range | Default | Meaning |
