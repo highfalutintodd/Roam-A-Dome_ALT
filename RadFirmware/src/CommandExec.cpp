@@ -62,8 +62,10 @@ void CommandExec::pump(uint32_t now, Print& console) {
     if (fMotion->busy())
         return; // blocking move in flight: sequencer holds (legacy sWaitTarget)
     if (fMotion->fault() != MotionController::Fault::kNone) {
-        console.println(F("SEQUENCE ABORTED (motion fault)"));
+        console.printf("SEQUENCE ABORTED (motion fault: %s)\n",
+                       MotionController::faultName(fMotion->fault()));
         fSeq->stop();
+        fMotion->clearFault(); // a fault kills THIS sequence, not all future ones
         return;
     }
     const SeqStep* step = fSeq->tick(now);
@@ -139,6 +141,7 @@ void CommandExec::execStep(const SeqStep& step, uint32_t now, Print& reply) {
 void CommandExec::execute(const Command& cmd, Print& reply) {
     switch (cmd.id) {
     case CmdId::kMotion:
+        fMotion->clearFault(); // an explicit new command always gets a fresh start
         if (fSeq->start(cmd.text, millis())) {
             // Steps dispatch from pump(); nothing else to do here.
         } else {
@@ -347,6 +350,10 @@ void CommandExec::setSetting(const Command& cmd, Print& reply) {
     case CmdId::kIdle:
         if (!inRange(0, 60000)) { reply.println(F("Invalid")); return; }
         s.idleMs = v; break;
+    case CmdId::kDebug:
+        fStats->debug = (v != 0);
+        reply.println(fStats->debug ? F("Debug on") : F("Debug off"));
+        return; // RAM-only: no settings save
     case CmdId::kPinDefault: {
         uint8_t pin = static_cast<uint8_t>(v / 10);
         bool val = (v % 10) != 0;

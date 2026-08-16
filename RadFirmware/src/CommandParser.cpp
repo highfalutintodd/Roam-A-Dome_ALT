@@ -69,6 +69,7 @@ constexpr ConfigDef kConfigTable[] = {
     {"TARGETMAX", ArgKind::kInt, CmdId::kTargetMax},
     {"HOMEPOS", ArgKind::kOptInt, CmdId::kHomePos},
     // Sensor validation + arbitration (new in v2)
+    {"DEBUG", ArgKind::kInt, CmdId::kDebug},
     {"MAXRPM", ArgKind::kInt, CmdId::kMaxRpm},
     {"SENSTO", ArgKind::kInt, CmdId::kSensTo},
     {"SENSN", ArgKind::kInt, CmdId::kSensN},

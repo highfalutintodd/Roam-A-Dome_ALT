@@ -71,19 +71,61 @@ void setup() {
     Serial.println("#DPCONFIG settings, #DPSTATUS state, :DPA<deg> to move.");
 }
 
-// Route a motor command (-100..100, +ve = increasing degrees) to the enabled
-// outputs, applying #DPINVERT here so every source is inverted consistently.
-static void driveMotor(int8_t pct) {
-    static int8_t sLastPct = 127; // force first write
-    if (sSettings.inverted)
-        pct = -pct;
-    if (pct == sLastPct)
+// ---------------------------------------------------------------------------
+// Motor output. Two sign conventions meet here:
+//  - Manual input: #DPINVERT maps stick direction to motor wire, exactly as the
+//    operator calibrated it on legacy firmware.
+//  - Automation: MotionController speaks in sensor degrees (+ = increasing).
+//    Which wire polarity increases degrees is LEARNED by watching the sensor
+//    while the operator drives manually (falls back to #DPINVERT until known),
+//    so the closed loop can never chase its target in the wrong direction.
+// Output is re-sent every 60 ms even when unchanged: Syren's serial-timeout
+// safety cuts the motor if packets stop (the "hold left and it stutters" bug).
+// ---------------------------------------------------------------------------
+static int8_t sWirePct = 0;   // last wire-level command actually sent
+static int8_t sDirSign = 0;   // learned wire->degrees sign; 0 = not yet learned
+
+static void driveMotor(int8_t wire, uint32_t now) {
+    static int8_t sLast = 127;     // force first write
+    static uint32_t sLastSent = 0;
+    sWirePct = wire;
+    if (wire == sLast && now - sLastSent < 60)
         return;
-    sLastPct = pct;
+    sLast = wire;
+    sLastSent = now;
     if (sSettings.serialOut)
-        sSyren.drive(pct);
+        sSyren.drive(wire);
     if (sSettings.pwmOut)
-        sPwm.drivePercent(pct);
+        sPwm.drivePercent(wire);
+}
+
+// Learn drive polarity from manual motion: correlate the wire command with the
+// validated sensor delta. ±10 degrees of consistent evidence locks it in;
+// contradicting evidence can re-flip it later (belt slip, rewiring).
+static void learnPolarity() {
+    static uint32_t sLastAccepted = 0;
+    static int32_t sAccum = 0;
+    uint32_t accepted = sSensor.stats().accepted;
+    if (accepted == sLastAccepted || !sSensor.valid())
+        return;
+    sLastAccepted = accepted;
+    if (sWirePct >= -25 && sWirePct <= 25)
+        return; // too gentle to attribute motion confidently
+    int16_t d = sSensor.lastDelta();
+    sAccum += (sWirePct > 0) ? d : -d;
+    if (sAccum >= 10) {
+        sAccum = 10;
+        if (sDirSign != 1) {
+            sDirSign = 1;
+            Serial.println(F("[DIR] learned: positive wire increases degrees"));
+        }
+    } else if (sAccum <= -10) {
+        sAccum = -10;
+        if (sDirSign != -1) {
+            sDirSign = -1;
+            Serial.println(F("[DIR] learned: positive wire decreases degrees"));
+        }
+    }
 }
 
 // Position report out the command serial on change: "#DP<mode><pos>" where mode is
@@ -178,7 +220,37 @@ void loop() {
     int8_t autoPct = sMotion.tick(in);
 
     // Manual always wins; automation output is only used when manual is neutral.
-    driveMotor(manualActive ? manualPct : autoPct);
+    int8_t wire;
+    if (manualActive) {
+        wire = sSettings.inverted ? static_cast<int8_t>(-manualPct) : manualPct;
+    } else {
+        int8_t dir = sDirSign != 0 ? sDirSign : (sSettings.inverted ? -1 : 1);
+        wire = static_cast<int8_t>(autoPct * dir);
+    }
+    driveMotor(wire, now);
+    learnPolarity();
+
+    // Live telemetry (#DPDEBUG1), ~4 Hz.
+    if (sStats.debug) {
+        static uint32_t sNextDbg = 0;
+        if ((int32_t)(now - sNextDbg) >= 0) {
+            sNextDbg = now + 250;
+            const char* st = "idle";
+            if (sMotion.state() == MotionController::State::kTarget)
+                st = "target";
+            else if (sMotion.state() == MotionController::State::kSpin)
+                st = "spin";
+            Serial.printf(
+                "[DBG] pos=%d tgt=%d st=%s auto=%d man=%d wire=%d dir=%d sensor=%s rej=%lu "
+                "jmp=%lu fault=%s seq=%d\n",
+                sSensor.valid() ? sSensor.position() : -1, sMotion.target(), st, autoPct,
+                manualPct, sWirePct, sDirSign,
+                sSensor.valid() ? "OK"
+                                : (sSensor.state() == SensorRing::State::kStale ? "STALE" : "WARM"),
+                (unsigned long)sSensor.stats().rejectedRate, (unsigned long)sSensor.stats().jumps,
+                MotionController::faultName(sMotion.fault()), sSeq.active() ? 1 : 0);
+        }
+    }
 
     reportPosition();
     reportConsole(now);

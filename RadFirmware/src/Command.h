@@ -65,6 +65,7 @@ enum class CmdId : uint8_t {
     kIdle,
     kSerialCmd,
     kPinDefault, // #DPPIN<pin><0|1> — arg = pin*10 + value
+    kDebug,      // #DPDEBUG<0|1> — live motion/sensor telemetry on the console
     // Sequence storage
     kSeqStore,  // #DPS<n>:<body> — arg = slot, text = body
     kSeqDelete, // #DPD<n>

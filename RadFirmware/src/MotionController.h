@@ -114,6 +114,15 @@ class MotionController {
 
     State state() const { return fState; }
     Fault fault() const { return fFault; }
+    void clearFault() { fFault = Fault::kNone; }
+    static const char* faultName(Fault f) {
+        switch (f) {
+        case Fault::kTimeout: return "TIMEOUT (dome stuck?)";
+        case Fault::kSensorLost: return "SENSOR LOST";
+        case Fault::kJump: return "POSITION JUMP";
+        default: return "NONE";
+        }
+    }
     bool arrived() const { return fArrived; }
     int16_t target() const { return fTarget; }
     // True while a blocking move is in flight — the sequencer must not advance.

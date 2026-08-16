@@ -29,7 +29,6 @@ DROPPED = {
 DEFERRED = {
     "rad.cfg.setup": "#DPSETUP non-blocking rewrite lands with bench calibration",
     "rad.cfg.setupVelocity": "with #DPSETUP",
-    "rad.cfg.debug": "verbose debug port pending",
     "rad.cfg.joy": "VT100 joystick emulation pending",
 }
 

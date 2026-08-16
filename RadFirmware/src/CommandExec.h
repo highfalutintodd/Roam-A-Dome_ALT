@@ -20,6 +20,7 @@ struct RuntimeStats {
     uint32_t invalidLines = 0;
     uint32_t lineOverflows = 0;
     uint32_t syrenChecksumErrors = 0;
+    bool debug = false; // #DPDEBUG — not persisted; off after every boot
 };
 
 class CommandExec {
