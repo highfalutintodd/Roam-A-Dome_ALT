@@ -1,0 +1,20 @@
+profiles:
+  # LilyGO T-Display-S3 based "display" controller (big-number position screen).
+  # WCB_Client is not in the Arduino Library Manager index; it is vendored in
+  # libs/WCB_Client (pinned tag 1.13.0 from github.com/greghulette/WCBClient).
+  rad-display:
+    fqbn: esp32:esp32:esp32s3:PartitionScheme=default_8MB,FlashSize=8M,CDCOnBoot=cdc,PSRAM=opi
+    platforms:
+      - platform: esp32:esp32 (3.3.4)
+    libraries:
+      - dir: libs/WCB_Client
+
+  # Compact controller (classic ESP32, no display).
+  rad-compact:
+    fqbn: esp32:esp32:esp32
+    platforms:
+      - platform: esp32:esp32 (3.3.4)
+    libraries:
+      - dir: libs/WCB_Client
+
+default_profile: rad-display

@@ -86,28 +86,37 @@ Exact pin assignments live in [`RadFirmware/pinmap.h`](RadFirmware/pinmap.h).
 
 ## Installing
 
-**The easy way** — grab `rad-display.bin` or `rad-compact.bin` from the
-[latest release](../../releases/latest) and flash it with
+**The easy way** — grab `rad-display-<version>.bin` or `rad-compact-<version>.bin`
+from the [latest release](../../releases/latest) and flash it with
 [esptool](https://github.com/espressif/esptool) (adjust the port for your machine):
 
 ```bash
-esptool.py --port /dev/cu.usbmodem1101 write_flash 0x0 rad-display.bin
+esptool.py --port /dev/cu.usbmodem1101 write_flash 0x0 rad-display-2.0.0.bin
 ```
 
-Nothing is erased that you don't ask to erase — your settings live in NVS and
-survive a reflash unless the settings schema changed, in which case the firmware
-falls back to defaults and says so in the boot banner.
-
-**Coming from the original firmware?** Back your settings up first, then replay
-them once v2 is running:
+These are complete flash images — bootloader, partition table and firmware — so
+they install cleanly on a bare board. **They also reset stored settings**, so
+back yours up first if you have any worth keeping:
 
 ```bash
 python3 tools/capture_config.py --port /dev/cu.usbmodem1101 --capture ./capture
+```
+
+That works against the original firmware too, which is the easy way to carry an
+existing setup across. Once v2 is running, replay it:
+
+```bash
 python3 tools/capture_config.py --port /dev/cu.usbmodem1101 --replay ./capture/config.txt
 ```
 
 Mesh passwords are deliberately never included in a capture — re-send
 `#DPWCBPW<password>` followed by `#DPRESTART` yourself.
+
+To upgrade later **without** disturbing your settings, build from source and use
+`arduino-cli ... --upload`, which writes only the application partition and
+leaves NVS alone. Settings also carry across firmware versions on their own,
+except when the settings schema changes — then the firmware falls back to
+defaults and says `(fresh defaults)` in the boot banner.
 
 ## Building from source
 
