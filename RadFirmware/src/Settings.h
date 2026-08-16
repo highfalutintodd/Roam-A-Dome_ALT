@@ -6,7 +6,11 @@
 
 namespace rad {
 
-constexpr uint16_t kSettingsVersion = 1;
+// RULE: bump this on ANY change to RadSettings — even one that doesn't change
+// sizeof. Alignment padding can absorb an inserted field, so the size check
+// alone cannot detect a layout shift (field-shifted garbage loaded fine once:
+// old wcbOct2 0x3C read back as "WCBEN=60").
+constexpr uint16_t kSettingsVersion = 2;
 
 // Defaults are seeded from the live droid's captured legacy config
 // (docs/capture/config.txt, bench session 2) so a fresh v2 flash behaves like
