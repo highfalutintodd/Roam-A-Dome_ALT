@@ -1,2 +1,2 @@
 #pragma once
-#define RAD_FW_VERSION "2.0.0-rc1"
+#define RAD_FW_VERSION "2.0.0"

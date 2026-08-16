@@ -1,9 +1,0 @@
-PROCESS: "#DPSTATUS"
-Auto Safety Engaged
-Pulse Input Active
-No Dome Sensor Errors
-WiFi Disabled
-Remote Enabled
-Invalid
-Invalid
-Invalid

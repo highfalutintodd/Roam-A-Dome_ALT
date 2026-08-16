@@ -12,9 +12,9 @@ namespace rad {
 // old wcbOct2 0x3C read back as "WCBEN=60").
 constexpr uint16_t kSettingsVersion = 3;
 
-// Defaults are seeded from the live droid's captured legacy config
-// (docs/capture/config.txt, bench session 2) so a fresh v2 flash behaves like
-// Todd's droid, not a generic build.
+// Defaults are seeded from a live droid's captured legacy config, so a fresh
+// flash behaves like a working install rather than a generic build. Re-capture
+// your own with tools/capture_config.py before flashing if yours differs.
 struct RadSettings {
     // Serial / transports
     uint32_t serialBaud = 9600;    // #DPSERIALBAUD (command serial)

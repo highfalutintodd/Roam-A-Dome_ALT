@@ -2,7 +2,7 @@
 About Roam-A-Dome.rtfd/
 *.pyc
 __pycache__/
-releases/*.bin
+releases/
 docs/capture/*.log
 RadFirmware/test/native/rad_tests
 RadFirmware/test/native/rad_tests.dSYM/

@@ -200,7 +200,7 @@ the bench log shows no mesh message on release, so RAD currently has no way to h
 "all clear". Candidate fix: an explicit re-arm command (`#DPRESUME`) honored from
 any transport, so Sabé can clear the latch when its own e-stop is unlatched.
 
-## 11. Phase 0 bench checklist
+## 11. Resolved during bring-up (kept for provenance)
 
 - Board variant (compact vs display) and exact pin map; boot banner + PCB photos.
 - Actual sensor frame rate at the configured baud (tunes §7 constants).

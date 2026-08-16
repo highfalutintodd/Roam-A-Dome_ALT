@@ -57,13 +57,59 @@ over the original — lives in [BEHAVIOR.md](BEHAVIOR.md).
 | `RadFirmware/` | the v2 firmware (modular sources in `src/`, host tests in `test/native/`) |
 | `COMMANDS.md` | complete command reference — syntax, ranges, defaults |
 | `BEHAVIOR.md` | the observable contract the firmware is built and tested against |
-| `BENCH.md` | one-time bench checklist (board identification, settings capture) |
 | `tools/` | `capture_config.py` — capture/replay controller settings over USB |
 | `docs/reference/` | machine-readable command library used for conformance testing |
 | `legacy/` | the original firmware, kept intact as reference ([docs](legacy/README.md)) |
 | `Mounts/`, `images/` | sensor-ring mounting hardware (CAD/STL) and images from upstream |
 
-## Building
+## Hardware
+
+This is firmware for the **Roam-A-Dome controller board** from the
+[original project](https://github.com/reeltwo/DomeControlFirmware) — it does not
+replace your motor controller or your sensor ring, it drives them. Two board
+variants are supported, and they use different build profiles:
+
+| Variant | MCU | Profile | Notes |
+|---|---|---|---|
+| Display controller | ESP32-**S3** (LilyGO T-Display-S3 style, 170×320 ST7789) | `rad-display` | big-number position screen; console is USB CDC, so the command serial port is UART0 |
+| Compact controller | classic ESP32 | `rad-compact` | no screen, otherwise identical |
+
+You also need:
+
+- a **dome position sensor ring** feeding `#DP@<degrees>` lines at 57600 or 115200 baud
+  (`#DPSENSORBAUD`) — this is what makes any of the automation possible;
+- a **motor controller** — Syren/Sabertooth on packet serial (default) or anything
+  that takes an RC/PWM signal (`#DPPWMOUT1`);
+- optionally a **WCB** mesh to talk to, if you want wireless control.
+
+Exact pin assignments live in [`RadFirmware/pinmap.h`](RadFirmware/pinmap.h).
+
+## Installing
+
+**The easy way** — grab `rad-display.bin` or `rad-compact.bin` from the
+[latest release](../../releases/latest) and flash it with
+[esptool](https://github.com/espressif/esptool) (adjust the port for your machine):
+
+```bash
+esptool.py --port /dev/cu.usbmodem1101 write_flash 0x0 rad-display.bin
+```
+
+Nothing is erased that you don't ask to erase — your settings live in NVS and
+survive a reflash unless the settings schema changed, in which case the firmware
+falls back to defaults and says so in the boot banner.
+
+**Coming from the original firmware?** Back your settings up first, then replay
+them once v2 is running:
+
+```bash
+python3 tools/capture_config.py --port /dev/cu.usbmodem1101 --capture ./capture
+python3 tools/capture_config.py --port /dev/cu.usbmodem1101 --replay ./capture/config.txt
+```
+
+Mesh passwords are deliberately never included in a capture — re-send
+`#DPWCBPW<password>` followed by `#DPRESTART` yourself.
+
+## Building from source
 
 Install [arduino-cli](https://arduino.github.io/arduino-cli/), then:
 
@@ -72,8 +118,8 @@ cd RadFirmware && arduino-cli compile --profile rad-display
 ```
 
 Profiles pin everything (ESP32 core 3.3.4, vendored WCB_Client) so builds are
-reproducible: `rad-display` for the display controller, `rad-compact` for the compact
-controller.
+reproducible. Swap in `--profile rad-compact` for the compact controller, and add
+`--upload --port <your port>` to flash in one step.
 
 ## Testing
 
@@ -86,7 +132,7 @@ make -C RadFirmware/test/native test
 
 ## Quick start
 
-1. Flash the firmware (see **Building**), then open a serial monitor at 115200 baud.
+1. Flash the firmware (see **Installing**), then open a serial monitor at 115200 baud.
 2. Point the dome forward and set home: `#DPHOMEPOS`
 3. Try a move: `:DPA90` — then `:DPA0` to come back.
 4. Join the mesh: `#DPWCBPW<your mesh password>` then `#DPRESTART`

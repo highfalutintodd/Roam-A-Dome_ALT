@@ -2,10 +2,10 @@
 """Capture (and later replay) Roam-A-Dome configuration over USB serial.
 
 Capture from the LEGACY firmware before flashing v2:
-    python3 tools/capture_config.py --port /dev/cu.usbmodem* --capture docs/capture
+    python3 tools/capture_config.py --port /dev/cu.usbmodem* --capture ./capture
 
 Replay captured settings into the NEW firmware (Phase 1+):
-    python3 tools/capture_config.py --port /dev/cu.usbmodem* --replay docs/capture/config.txt
+    python3 tools/capture_config.py --port /dev/cu.usbmodem* --replay ./capture/config.txt
 
 Requires: pip install pyserial
 """
@@ -86,7 +86,7 @@ def capture(s, outdir: pathlib.Path) -> None:
         (outdir / f"{name}.txt").write_text(useful + "\n" if useful else raw)
         print(useful[:2000] or "(no output — saved raw)")
 
-    print(f"\ncaptured to {outdir}/ — commit these files (they are the migration data).")
+    print(f"\ncaptured to {outdir}/ — keep these as your settings backup.")
 
 
 def replay(s, config_file: pathlib.Path) -> None:
