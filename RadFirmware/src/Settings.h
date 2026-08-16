@@ -10,7 +10,7 @@ namespace rad {
 // sizeof. Alignment padding can absorb an inserted field, so the size check
 // alone cannot detect a layout shift (field-shifted garbage loaded fine once:
 // old wcbOct2 0x3C read back as "WCBEN=60").
-constexpr uint16_t kSettingsVersion = 2;
+constexpr uint16_t kSettingsVersion = 3;
 
 // Defaults are seeded from the live droid's captured legacy config
 // (docs/capture/config.txt, bench session 2) so a fresh v2 flash behaves like
@@ -69,6 +69,9 @@ struct RadSettings {
     uint16_t idleMs = 3000;        // #DPIDLE (manual-neutral time before automation)
 
     uint16_t dedupMs = 750;        // #DPDEDUP: cross-transport duplicate window (0 = off)
+
+    // Display (display board only; accepted and stored on every board)
+    uint16_t lcdSleepSec = 300;    // #DPLCDSLEEP: backlight idle timeout (0 = always on)
 
     // WCB mesh (Phase 5; stored from day one so bench config survives reflashes)
     bool wcbEnabled = true;        // #DPWCBEN

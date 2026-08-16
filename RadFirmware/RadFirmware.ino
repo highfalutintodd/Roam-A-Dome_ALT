@@ -207,6 +207,9 @@ static void reportConsole(uint32_t now) {
 static void handleCommandLine(const char* line, Print& reply) {
     if (line[0] == ':' && line[1] == 'D' && line[2] == 'P')
         gWcb.clearEstop();
+#ifdef RAD_USE_DISPLAY
+    sDisplay.noteActivity(millis()); // someone is talking to the droid: wake the screen
+#endif
     sExec.handleLine(line, reply);
 }
 
@@ -347,6 +350,12 @@ void loop() {
         gWcb.sendHeartbeat(now, state);
     }
 #ifdef RAD_USE_DISPLAY
+    // Anything the droid is actively doing keeps the backlight up; the screen
+    // only sleeps once the dome is parked and nobody is driving it.
+    bool busy = manualActive || sMotion.state() != MotionController::State::kIdle || sSeq.active();
+    if (busy)
+        sDisplay.noteActivity(now);
+    sDisplay.setSleepTimeout(sSettings.lcdSleepSec); // live #DPLCDSLEEP changes
     sDisplay.update(now, sSensor.valid(), sSensor.position(),
                     sMotion.state() != MotionController::State::kIdle);
 #endif

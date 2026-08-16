@@ -2,6 +2,7 @@
 
 #include "../../src/Command.h"
 #include "../../src/Dedup.h"
+#include "../../src/DisplaySleep.h"
 #include "../../src/LineAssembler.h"
 #include "../../src/SyrenCodec.h"
 
@@ -284,6 +285,46 @@ TEST(syren_foreign_address_ignored) {
         got = dec.feed(b, out);
     CHECK(!got);
     CHECK_EQ(dec.foreignFrames(), 1u);
+}
+
+// ---------------------------------------------------------------- DisplaySleep
+
+TEST(display_sleep_disabled_stays_awake_forever) {
+    DisplaySleep s;
+    s.setTimeout(0); // #DPLCDSLEEP0 = always on
+    s.poke(0);
+    CHECK(!s.tick(1000000));
+    CHECK(s.awake());
+}
+
+TEST(display_sleep_sleeps_after_timeout_and_wakes_on_activity) {
+    DisplaySleep s;
+    s.setTimeout(300000); // 5 minutes
+    s.poke(1000);
+
+    CHECK(!s.tick(200000)); // still inside the window: no edge
+    CHECK(s.awake());
+
+    CHECK(s.tick(301000)); // edge: fell asleep
+    CHECK(!s.awake());
+    CHECK(!s.tick(400000)); // stays asleep; the edge is reported only once
+
+    s.poke(400000);
+    CHECK(s.tick(400000)); // edge: woke in the same tick as the activity
+    CHECK(s.awake());
+}
+
+TEST(display_sleep_survives_millis_rollover) {
+    DisplaySleep s;
+    s.setTimeout(60000);
+    uint32_t justBeforeWrap = 0xFFFFFFFFu - 10000u;
+    s.poke(justBeforeWrap);
+    // 20 s later the clock has wrapped past zero; a naive `now > deadline`
+    // comparison would blank the screen instantly here.
+    CHECK(!s.tick(justBeforeWrap + 20000u));
+    CHECK(s.awake());
+    CHECK(s.tick(justBeforeWrap + 61000u));
+    CHECK(!s.awake());
 }
 
 int main() {

@@ -85,6 +85,7 @@ constexpr ConfigDef kConfigTable[] = {
     {"SENSN", ArgKind::kInt, CmdId::kSensN},
     {"DWELL", ArgKind::kInt, CmdId::kDwell},
     {"IDLE", ArgKind::kInt, CmdId::kIdle},
+    {"LCDSLEEP", ArgKind::kInt, CmdId::kLcdSleep},
     // Sequence list ("S"/"D" forms are special-cased in parseConfig)
     {"L", ArgKind::kNone, CmdId::kSeqList},
 };

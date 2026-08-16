@@ -6,6 +6,8 @@
 
 #include "DisplayS3.h"
 
+#include "CircularMath.h"
+
 #include <esp_heap_caps.h>
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
@@ -16,6 +18,12 @@ namespace {
 
 constexpr int kW = 320; // landscape
 constexpr int kH = 170;
+
+// Dome rotation (from any source, including a hand-turned dome during home
+// calibration) counts as activity. The threshold is deliberately well above the
+// 1-2 degrees of sensor drift a parked dome shows over minutes — otherwise that
+// drift would poke the timer forever and the screen would never sleep.
+constexpr int16_t kWakeDeg = 8;
 constexpr uint16_t kBlack = 0x0000;
 constexpr uint16_t kWhite = 0xFFFF;
 constexpr uint16_t kRed = 0xF800;
@@ -99,12 +107,34 @@ bool DisplayS3::begin() {
     render(false, 0, false); // "---" until the sensor warms up
     digitalWrite(RAD_PIN_LCD_BL, HIGH);
     fReady = true;
+    fSleep.poke(millis()); // boot counts as activity: full timeout before sleeping
     return true;
+}
+
+void DisplayS3::setSleepTimeout(uint16_t sec) {
+    fSleep.setTimeout(static_cast<uint32_t>(sec) * 1000UL);
+}
+
+void DisplayS3::setBacklight(bool on) {
+    digitalWrite(RAD_PIN_LCD_BL, on ? HIGH : LOW);
 }
 
 void DisplayS3::update(uint32_t now, bool valid, int16_t deg, bool moving) {
     if (!fReady)
         return;
+
+    // Dome motion is activity in its own right — during manual passthrough the
+    // MotionController stays idle, so `moving` alone would miss the operator
+    // jogging the dome with the sticks.
+    if (valid && circularDistance(deg, fWakeRefDeg) >= kWakeDeg) {
+        fWakeRefDeg = deg;
+        fSleep.poke(now);
+    }
+    if (fSleep.tick(now))
+        setBacklight(fSleep.awake());
+    if (!fSleep.awake())
+        return; // dark: leave the panel holding its last frame, skip the bus traffic
+
     if (valid == fLastValid && deg == fLastDeg && moving == fLastMoving)
         return;
     if (now - fLastDrawMs < 80)

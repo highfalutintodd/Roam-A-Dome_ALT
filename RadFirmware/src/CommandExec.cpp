@@ -404,6 +404,11 @@ void CommandExec::setSetting(const Command& cmd, Print& reply) {
     case CmdId::kDedup:
         if (!inRange(0, 10000)) { reply.println(F("Invalid")); return; }
         s.dedupMs = v; break;
+    case CmdId::kLcdSleep:
+        // Up to 1 h; 0 = always on. Applied live by the display each loop, so no
+        // restart is needed.
+        if (!inRange(0, 3600)) { reply.println(F("Invalid")); return; }
+        s.lcdSleepSec = v; break;
     case CmdId::kPinDefault: {
         uint8_t pin = static_cast<uint8_t>(v / 10);
         bool val = (v % 10) != 0;
@@ -475,6 +480,7 @@ void CommandExec::dumpConfig(Print& reply) const {
     reply.printf("#DPDWELL=%u\n", s.dwell);
     reply.printf("#DPIDLE=%u\n", s.idleMs);
     reply.printf("#DPDEDUP=%u\n", s.dedupMs);
+    reply.printf("#DPLCDSLEEP=%u\n", s.lcdSleepSec);
     reply.printf("#DPWCBEN=%d\n", s.wcbEnabled ? 1 : 0);
     reply.printf("#DPWCBID=%u\n", s.wcbDeviceId);
     reply.printf("#DPWCBOCT=%02X,%02X\n", s.wcbOct2, s.wcbOct3);

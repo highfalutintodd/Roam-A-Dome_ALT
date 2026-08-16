@@ -75,6 +75,7 @@ enum class CmdId : uint8_t {
     kWcbPw,      // #DPWCBPW<string> (in text)
     kWcbCs,      // #DPWCBCS<0|1>
     kDedup,      // #DPDEDUP<ms>, 0 = off
+    kLcdSleep,   // #DPLCDSLEEP<sec> — display backlight idle timeout, 0 = always on
     // Sequence storage
     kSeqStore,  // #DPS<n>:<body> — arg = slot, text = body
     kSeqDelete, // #DPD<n>
