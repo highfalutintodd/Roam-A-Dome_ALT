@@ -347,6 +347,16 @@ void CommandExec::setSetting(const Command& cmd, Print& reply) {
     case CmdId::kIdle:
         if (!inRange(0, 60000)) { reply.println(F("Invalid")); return; }
         s.idleMs = v; break;
+    case CmdId::kPinDefault: {
+        uint8_t pin = static_cast<uint8_t>(v / 10);
+        bool val = (v % 10) != 0;
+        if (val)
+            s.digitalPins |= (1u << (pin - 1));
+        else
+            s.digitalPins &= ~(1u << (pin - 1));
+        fPins->set(pin, val);
+        break;
+    }
     default:
         reply.println(F("Invalid"));
         return;

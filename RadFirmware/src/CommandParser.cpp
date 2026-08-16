@@ -115,6 +115,16 @@ ParseStatus parseConfig(const char* body, Command& out) {
         out.hasArg = true;
         return ParseStatus::kOk;
     }
+    // Pin default: #DPPIN<pin 1-8><0|1> — two adjacent digits, so the generic
+    // int-arg table can't express it.
+    if (std::strncmp(body, "PIN", 3) == 0 && body[3] >= '1' && body[3] <= '8' &&
+        (body[4] == '0' || body[4] == '1') && body[5] == '\0') {
+        out.id = CmdId::kPinDefault;
+        out.arg = (body[3] - '0') * 10 + (body[4] - '0');
+        out.hasArg = true;
+        return ParseStatus::kOk;
+    }
+
     // Sequence delete: #DPD<n> (all digits to end of line).
     if (body[0] == 'D' && body[1] >= '0' && body[1] <= '9') {
         const char* p = body + 1;

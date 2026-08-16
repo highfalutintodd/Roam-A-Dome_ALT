@@ -64,6 +64,7 @@ enum class CmdId : uint8_t {
     kDwell,
     kIdle,
     kSerialCmd,
+    kPinDefault, // #DPPIN<pin><0|1> — arg = pin*10 + value
     // Sequence storage
     kSeqStore,  // #DPS<n>:<body> — arg = slot, text = body
     kSeqDelete, // #DPD<n>

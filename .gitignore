@@ -6,3 +6,4 @@ releases/*.bin
 docs/capture/*.log
 RadFirmware/test/native/rad_tests
 RadFirmware/test/native/rad_tests.dSYM/
+RadFirmware/test/native/parse_cli

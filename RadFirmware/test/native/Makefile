@@ -16,5 +16,8 @@ test: $(BIN)
 $(BIN): $(SRCS) $(HDRS)
 	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
 
+parse_cli: parse_cli.cpp ../../src/CommandParser.cpp ../../src/Sequencer.cpp $(HDRS)
+	$(CXX) $(CXXFLAGS) -o $@ parse_cli.cpp ../../src/CommandParser.cpp ../../src/Sequencer.cpp
+
 clean:
-	rm -f $(BIN)
+	rm -f $(BIN) parse_cli
