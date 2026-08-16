@@ -210,6 +210,10 @@ void CommandExec::execute(const Command& cmd, Print& reply) {
         reply.printf("SensorRejectedRate=%lu\n", (unsigned long)ss.rejectedRate);
         reply.printf("SensorJumps=%lu\n", (unsigned long)ss.jumps);
         reply.printf("SensorStaleEvents=%lu\n", (unsigned long)ss.staleEvents);
+        reply.printf("DedupSuppressed=%lu\n", (unsigned long)fStats->dedupSuppressed);
+        reply.printf("MeshRx=%lu\n", (unsigned long)fStats->meshRx);
+        reply.printf("MeshDropped=%lu\n", (unsigned long)fStats->meshDropped);
+        reply.printf("MeshEstops=%lu\n", (unsigned long)fStats->meshEstops);
         break;
     }
     case CmdId::kRestart:
@@ -363,6 +367,43 @@ void CommandExec::setSetting(const Command& cmd, Print& reply) {
         fStats->debug = (v != 0);
         reply.println(fStats->debug ? F("Debug on") : F("Debug off"));
         return; // RAM-only: no settings save
+    case CmdId::kWcbEn: s.wcbEnabled = (v != 0); needsRestart = true; break;
+    case CmdId::kWcbId:
+        if (!inRange(1, 19)) { reply.println(F("Invalid")); return; }
+        s.wcbDeviceId = v; needsRestart = true; break;
+    case CmdId::kWcbOct: {
+        // "#DPWCBOCT3C,4E" — two hex octets
+        char* end = nullptr;
+        long o2 = strtol(cmd.text, &end, 16);
+        if (end == cmd.text || *end != ',' || o2 < 0 || o2 > 255) {
+            reply.println(F("Invalid"));
+            return;
+        }
+        const char* p2 = end + 1;
+        long o3 = strtol(p2, &end, 16);
+        if (end == p2 || *end != '\0' || o3 < 0 || o3 > 255) {
+            reply.println(F("Invalid"));
+            return;
+        }
+        s.wcbOct2 = static_cast<uint8_t>(o2);
+        s.wcbOct3 = static_cast<uint8_t>(o3);
+        needsRestart = true;
+        break;
+    }
+    case CmdId::kWcbQty:
+        if (!inRange(1, 19)) { reply.println(F("Invalid")); return; }
+        s.wcbQuantity = v; needsRestart = true; break;
+    case CmdId::kWcbCh:
+        if (!inRange(1, 13)) { reply.println(F("Invalid")); return; }
+        s.wcbChannel = v; needsRestart = true; break;
+    case CmdId::kWcbPw:
+        strlcpy(s.wcbPassword, cmd.text, sizeof(s.wcbPassword));
+        needsRestart = true;
+        break;
+    case CmdId::kWcbCs: s.wcbChecksum = (v != 0); needsRestart = true; break;
+    case CmdId::kDedup:
+        if (!inRange(0, 10000)) { reply.println(F("Invalid")); return; }
+        s.dedupMs = v; break;
     case CmdId::kPinDefault: {
         uint8_t pin = static_cast<uint8_t>(v / 10);
         bool val = (v % 10) != 0;
@@ -433,6 +474,15 @@ void CommandExec::dumpConfig(Print& reply) const {
     reply.printf("#DPSENSN=%u\n", s.sensN);
     reply.printf("#DPDWELL=%u\n", s.dwell);
     reply.printf("#DPIDLE=%u\n", s.idleMs);
+    reply.printf("#DPDEDUP=%u\n", s.dedupMs);
+    reply.printf("#DPWCBEN=%d\n", s.wcbEnabled ? 1 : 0);
+    reply.printf("#DPWCBID=%u\n", s.wcbDeviceId);
+    reply.printf("#DPWCBOCT=%02X,%02X\n", s.wcbOct2, s.wcbOct3);
+    reply.printf("#DPWCBQTY=%u\n", s.wcbQuantity);
+    reply.printf("#DPWCBCH=%u\n", s.wcbChannel);
+    reply.printf("#DPWCBCS=%d\n", s.wcbChecksum ? 1 : 0);
+    // Password deliberately not dumped (public logs); shown only as set/unset.
+    reply.printf("; WCB password %s\n", s.wcbPassword[0] != '\0' ? "SET" : "NOT SET");
 }
 
 } // namespace rad

@@ -10,6 +10,7 @@ enum class ArgKind : uint8_t {
     kNone,     // bare command, trailing chars invalid
     kInt,      // decimal integer immediately follows the name
     kOptInt,   // integer optional (e.g. #DPHOMEPOS vs #DPHOMEPOS90 in later phases)
+    kString,   // non-empty free text into Command::text (passwords, hex pairs)
 };
 
 struct ConfigDef {
@@ -70,6 +71,15 @@ constexpr ConfigDef kConfigTable[] = {
     {"HOMEPOS", ArgKind::kOptInt, CmdId::kHomePos},
     // Sensor validation + arbitration (new in v2)
     {"DEBUG", ArgKind::kInt, CmdId::kDebug},
+    // WCB mesh
+    {"WCBEN", ArgKind::kInt, CmdId::kWcbEn},
+    {"WCBID", ArgKind::kInt, CmdId::kWcbId},
+    {"WCBOCT", ArgKind::kString, CmdId::kWcbOct},
+    {"WCBQTY", ArgKind::kInt, CmdId::kWcbQty},
+    {"WCBCH", ArgKind::kInt, CmdId::kWcbCh},
+    {"WCBPW", ArgKind::kString, CmdId::kWcbPw},
+    {"WCBCS", ArgKind::kInt, CmdId::kWcbCs},
+    {"DEDUP", ArgKind::kInt, CmdId::kDedup},
     {"MAXRPM", ArgKind::kInt, CmdId::kMaxRpm},
     {"SENSTO", ArgKind::kInt, CmdId::kSensTo},
     {"SENSN", ArgKind::kInt, CmdId::kSensN},
@@ -166,6 +176,14 @@ ParseStatus parseConfig(const char* body, Command& out) {
             return ParseStatus::kInvalid;
         out.hasArg = (*args != '\0');
         break;
+    case ArgKind::kString: {
+        size_t len = std::strlen(args);
+        if (len == 0 || len >= kMaxCommandText)
+            return ParseStatus::kInvalid;
+        std::memcpy(out.text, args, len + 1);
+        out.hasArg = true;
+        break;
+    }
     }
     out.id = best->id;
     return ParseStatus::kOk;

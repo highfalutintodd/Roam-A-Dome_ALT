@@ -64,6 +64,8 @@ struct RadSettings {
     uint8_t dwell = 3;             // #DPDWELL
     uint16_t idleMs = 3000;        // #DPIDLE (manual-neutral time before automation)
 
+    uint16_t dedupMs = 750;        // #DPDEDUP: cross-transport duplicate window (0 = off)
+
     // WCB mesh (Phase 5; stored from day one so bench config survives reflashes)
     bool wcbEnabled = true;        // #DPWCBEN
     uint8_t wcbDeviceId = 4;       // #DPWCBID

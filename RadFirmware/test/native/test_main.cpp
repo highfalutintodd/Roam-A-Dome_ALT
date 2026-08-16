@@ -1,6 +1,7 @@
 #include "rad_test.h"
 
 #include "../../src/Command.h"
+#include "../../src/Dedup.h"
 #include "../../src/LineAssembler.h"
 #include "../../src/SyrenCodec.h"
 
@@ -139,6 +140,49 @@ TEST(parser_motion_config_longest_prefix_families) {
     CHECK(c.id == CmdId::kSensTo);
     CHECK(parseLine("#DPIDLE3000", c) == ParseStatus::kOk);
     CHECK(c.id == CmdId::kIdle);
+}
+
+TEST(parser_wcb_commands) {
+    Command c;
+    CHECK(parseLine("#DPWCBEN1", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kWcbEn && c.arg == 1);
+    CHECK(parseLine("#DPWCBID4", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kWcbId && c.arg == 4);
+    CHECK(parseLine("#DPWCBOCT3C,4E", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kWcbOct && std::strcmp(c.text, "3C,4E") == 0);
+    CHECK(parseLine("#DPWCBPWsecret123", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kWcbPw && std::strcmp(c.text, "secret123") == 0);
+    CHECK(parseLine("#DPWCBPW", c) == ParseStatus::kInvalid); // empty password
+    CHECK(parseLine("#DPWCBCH1", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kWcbCh);
+    CHECK(parseLine("#DPDEDUP750", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kDedup && c.arg == 750);
+}
+
+// ---------------------------------------------------------------- DedupFilter
+
+TEST(dedup_suppresses_cross_source_twin_only) {
+    DedupFilter d;
+    // Command arrives via mesh, then its wired twin 100 ms later: twin suppressed.
+    CHECK(d.allow(":DPA90", DedupFilter::kSourceMesh, 1000, 750));
+    CHECK(!d.allow(":DPA90", DedupFilter::kSourceSerial, 1100, 750));
+    CHECK_EQ(d.suppressed(), 1u);
+
+    // Same source repeating is ALWAYS allowed (operator mashing a command).
+    CHECK(d.allow(":DPH", DedupFilter::kSourceMesh, 2000, 750));
+    CHECK(d.allow(":DPH", DedupFilter::kSourceMesh, 2100, 750));
+
+    // Outside the window the cross-source copy runs.
+    CHECK(d.allow(":DPA45", DedupFilter::kSourceMesh, 5000, 750));
+    CHECK(d.allow(":DPA45", DedupFilter::kSourceSerial, 5900, 750));
+
+    // Different command from the other source is never suppressed.
+    CHECK(d.allow(":DPA10", DedupFilter::kSourceMesh, 7000, 750));
+    CHECK(d.allow(":DPA20", DedupFilter::kSourceSerial, 7050, 750));
+
+    // Window 0 disables suppression entirely.
+    CHECK(d.allow(":DPZ", DedupFilter::kSourceMesh, 9000, 0));
+    CHECK(d.allow(":DPZ", DedupFilter::kSourceSerial, 9010, 0));
 }
 
 TEST(parser_motion_lines_preserved_verbatim) {

@@ -35,7 +35,13 @@
 #define RAD_HAS_DISPLAY 1
 #define RAD_PIN_LCD_BL 38
 #define RAD_PIN_LCD_POWER 15
-// Full LCD data/control pin set lives with the Display implementation (Phase 2).
+#define RAD_PIN_LCD_RES 5
+#define RAD_PIN_LCD_CS 6
+#define RAD_PIN_LCD_DC 7
+#define RAD_PIN_LCD_WR 8
+#define RAD_PIN_LCD_RD 9
+#define RAD_PIN_LCD_DATA                                                                           \
+    { 39, 40, 41, 42, 45, 46, 47, 48 }
 
 #endif // RAD_BOARD_DISPLAY
 

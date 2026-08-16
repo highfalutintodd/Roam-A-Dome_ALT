@@ -1,8 +1,9 @@
-// Roam-A-Dome v2 — Phase 3: motion control + sequencer on the validated pipeline.
+// Roam-A-Dome v2 — Phase 5: WCB mesh + big-number display on the validated core.
 // See ../BEHAVIOR.md for the observable contract this firmware implements.
 
 #include "pinmap.h"
 #include "src/CommandExec.h"
+#include "src/Dedup.h"
 #include "src/LineAssembler.h"
 #include "src/MotionController.h"
 #include "src/PinBank.h"
@@ -13,6 +14,12 @@
 #include "src/Sequencer.h"
 #include "src/Settings.h"
 #include "src/SyrenBus.h"
+#include "src/WcbLink.h"
+
+#if RAD_HAS_DISPLAY && defined(CONFIG_IDF_TARGET_ESP32S3)
+#define RAD_USE_DISPLAY 1
+#include "src/DisplayS3.h"
+#endif
 
 #include <esp_random.h>
 
@@ -20,8 +27,6 @@ using namespace rad;
 
 // UART assignment (see pinmap.h): UART1 = sensor ring, UART2 = Syren in/out.
 // Display board (S3): console is native USB CDC, so UART0 serves the command port.
-// Compact board (classic ESP32): UART0 is the USB bridge console; the command
-// port would need a software serial there — gated off until such a board shows up.
 HardwareSerial& syrenSerial = Serial2;
 HardwareSerial& sensorSerial = Serial1;
 #ifdef RAD_BOARD_DISPLAY
@@ -44,9 +49,13 @@ static PinBank sPins;
 static CommandExec sExec;
 static SyrenBus sSyren;
 static PwmIO sPwm;
+static DedupFilter sDedup;
 static LineAssembler sConsoleLine;
 #ifdef RAD_HAS_CMD_SERIAL
 static LineAssembler sCmdLine;
+#endif
+#ifdef RAD_USE_DISPLAY
+static DisplayS3 sDisplay;
 #endif
 
 void setup() {
@@ -65,6 +74,11 @@ void setup() {
     sExec.begin(&sSettings, &sStore, &sStats, &sSensor, &sMotion, &sSeq, &sSeqStore, &sPins);
     sSyren.begin(syrenSerial, sSettings);
     sPwm.begin(RAD_PIN_PWM_IN, RAD_PIN_PWM_OUT, sSettings);
+#ifdef RAD_USE_DISPLAY
+    if (!sDisplay.begin())
+        Serial.println("[LCD] init failed — running headless");
+#endif
+    gWcb.begin(sSettings, RAD_FW_VERSION);
 
     Serial.printf("\nRoam-A-Dome v2 %s (%s)\n", RAD_FW_VERSION,
                   loaded ? "settings loaded" : "fresh defaults");
@@ -143,8 +157,16 @@ static void learnPolarity(uint32_t now) {
     }
 }
 
-// Position report out the command serial on change: "#DP<mode><pos>" where mode is
-// '@' off, '!' home-seek, '$' random, '%' target (BEHAVIOR.md §6).
+// Current report mode char: '@' off, '!' home-seek, '$' random, '%' target.
+static char modeChar() {
+    if (sMotion.state() == MotionController::State::kTarget)
+        return sMotion.target() == sMotion.tuning.homePos ? '!' : '%';
+    if (sMotion.tuning.autoMode)
+        return '$';
+    return '@';
+}
+
+// Position report out the command serial on change (BEHAVIOR.md §6).
 static void reportPosition() {
 #ifdef RAD_HAS_CMD_SERIAL
     static int16_t sLastReported = -1;
@@ -154,13 +176,8 @@ static void reportPosition() {
     if (pos == sLastReported)
         return;
     sLastReported = pos;
-    char mode = '@';
-    if (sMotion.state() == MotionController::State::kTarget)
-        mode = sMotion.target() == sMotion.tuning.homePos ? '!' : '%';
-    else if (sMotion.tuning.autoMode)
-        mode = '$';
     char buf[16];
-    snprintf(buf, sizeof(buf), "#DP%c%d", mode, pos);
+    snprintf(buf, sizeof(buf), "#DP%c%d", modeChar(), pos);
     cmdSerial.println(buf);
 #endif
 }
@@ -185,6 +202,14 @@ static void reportConsole(uint32_t now) {
     }
 }
 
+// Ingress helper: an explicit new :DP command releases the e-stop latch
+// (BEHAVIOR.md §5) before it executes.
+static void handleCommandLine(const char* line, Print& reply) {
+    if (line[0] == ':' && line[1] == 'D' && line[2] == 'P')
+        gWcb.clearEstop();
+    sExec.handleLine(line, reply);
+}
+
 void loop() {
     uint32_t now = millis();
 
@@ -204,7 +229,7 @@ void loop() {
     while (Serial.available() > 0) {
         if (const char* line = sConsoleLine.feed(static_cast<char>(Serial.read()))) {
             ++sStats.linesConsole;
-            sExec.handleLine(line, Serial);
+            handleCommandLine(line, Serial);
         }
     }
 #ifdef RAD_HAS_CMD_SERIAL
@@ -212,7 +237,10 @@ void loop() {
         while (cmdSerial.available() > 0) {
             if (const char* line = sCmdLine.feed(static_cast<char>(cmdSerial.read()))) {
                 ++sStats.linesCmdSerial;
-                sExec.handleLine(line, cmdSerial);
+                if ((line[0] == ':' || line[0] == '#') &&
+                    !sDedup.allow(line, DedupFilter::kSourceSerial, now, sSettings.dedupMs))
+                    continue; // mesh twin already executed
+                handleCommandLine(line, cmdSerial);
             }
         }
     }
@@ -221,7 +249,34 @@ void loop() {
     sStats.lineOverflows = sConsoleLine.overflows();
 #endif
 
-    // --- sequencer + motion (arbitration ladder, BEHAVIOR.md §5) --------------
+    // Mesh ingress: commands queued by the WCB RX callback, drained here.
+    gWcb.update();
+    WcbLink::RxLine rx;
+    while (gWcb.receive(rx)) {
+        if (!sDedup.allow(rx.text, DedupFilter::kSourceMesh, now, sSettings.dedupMs))
+            continue; // wired twin already executed
+        handleCommandLine(rx.text, Serial);
+    }
+    sStats.dedupSuppressed = sDedup.suppressed();
+    sStats.meshRx = gWcb.stats().rx;
+    sStats.meshDropped = gWcb.stats().dropped;
+    sStats.meshEstops = gWcb.stats().estops;
+
+    // --- arbitration ladder (BEHAVIOR.md §5) ----------------------------------
+    // Rung 1: e-stop. Latched by ?STOP/&SABE,ESTOP; released by manual input or
+    // an explicit new :DP command (handled at ingress).
+    bool estop = gWcb.estopLatched();
+    if (estop) {
+        if (sSeq.active()) {
+            Serial.println(F("SEQUENCE CANCELLED (e-stop)"));
+            sSeq.stop();
+        }
+        if (manualActive) {
+            gWcb.clearEstop(); // operator stick input is unambiguous human intent
+            estop = false;
+        }
+    }
+
     sExec.pump(now, manualActive, Serial);
 
     MotionController::Inputs in;
@@ -231,12 +286,14 @@ void loop() {
     in.sampleCount = sSensor.stats().accepted;
     in.jumped = sSensor.consumeJump();
     in.manualActive = manualActive;
-    in.estop = false; // WCB ?STOP latch lands in Phase 5
+    in.estop = estop;
     int8_t autoPct = sMotion.tick(in);
 
     // Manual always wins; automation output is only used when manual is neutral.
     int8_t wire;
-    if (manualActive) {
+    if (estop) {
+        wire = 0;
+    } else if (manualActive) {
         wire = sSettings.inverted ? static_cast<int8_t>(-manualPct) : manualPct;
     } else {
         int8_t dir = sDirSign != 0 ? sDirSign : (sSettings.inverted ? -1 : 1);
@@ -245,7 +302,8 @@ void loop() {
     driveMotor(wire, now);
     learnPolarity(now);
 
-    // Live telemetry (#DPDEBUG1), ~4 Hz.
+    // --- telemetry ------------------------------------------------------------
+    // Live console debug (#DPDEBUG1), ~4 Hz.
     if (sStats.debug) {
         static uint32_t sNextDbg = 0;
         if ((int32_t)(now - sNextDbg) >= 0) {
@@ -257,18 +315,41 @@ void loop() {
                 st = "spin";
             Serial.printf(
                 "[DBG] pos=%d tgt=%d st=%s auto=%d man=%d wire=%d dir=%d sensor=%s rej=%lu "
-                "jmp=%lu fault=%s seq=%d\n",
+                "jmp=%lu fault=%s seq=%d wcb=%s estop=%d\n",
                 sSensor.valid() ? sSensor.position() : -1, sMotion.target(), st, autoPct,
                 manualPct, sWirePct, sDirSign,
                 sSensor.valid() ? "OK"
                                 : (sSensor.state() == SensorRing::State::kStale ? "STALE" : "WARM"),
                 (unsigned long)sSensor.stats().rejectedRate, (unsigned long)sSensor.stats().jumps,
-                MotionController::faultName(sMotion.fault()), sSeq.active() ? 1 : 0);
+                MotionController::faultName(sMotion.fault()), sSeq.active() ? 1 : 0,
+                gWcb.active() ? (gWcb.sabeOnline() ? "sabe" : "up") : "off",
+                gWcb.estopLatched() ? 1 : 0);
         }
     }
 
     reportPosition();
     reportConsole(now);
+    {
+        static bool sWasValid = false;
+        if (sSensor.valid()) {
+            gWcb.sendPosition(sSensor.position(), modeChar(), now);
+            sWasValid = true;
+        } else if (sWasValid && sSensor.state() == SensorRing::State::kStale) {
+            gWcb.sendFault("SENSOR_STALE");
+            sWasValid = false;
+        }
+    }
+    {
+        const char* state = gWcb.estopLatched() ? "ESTOP"
+                            : sSeq.active()     ? "SEQ"
+                            : manualActive      ? "MANUAL"
+                                                : "IDLE";
+        gWcb.sendHeartbeat(now, state);
+    }
+#ifdef RAD_USE_DISPLAY
+    sDisplay.update(now, sSensor.valid(), sSensor.position(),
+                    sMotion.state() != MotionController::State::kIdle);
+#endif
 
     delay(1);
 }

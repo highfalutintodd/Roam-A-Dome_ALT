@@ -20,6 +20,10 @@ struct RuntimeStats {
     uint32_t invalidLines = 0;
     uint32_t lineOverflows = 0;
     uint32_t syrenChecksumErrors = 0;
+    uint32_t dedupSuppressed = 0;
+    uint32_t meshRx = 0;
+    uint32_t meshDropped = 0;
+    uint32_t meshEstops = 0;
     bool debug = false; // #DPDEBUG — not persisted; off after every boot
 };
 

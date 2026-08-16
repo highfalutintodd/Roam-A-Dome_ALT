@@ -66,6 +66,15 @@ enum class CmdId : uint8_t {
     kSerialCmd,
     kPinDefault, // #DPPIN<pin><0|1> — arg = pin*10 + value
     kDebug,      // #DPDEBUG<0|1> — live motion/sensor telemetry on the console
+    // WCB mesh (Phase 5)
+    kWcbEn,      // #DPWCBEN<0|1>
+    kWcbId,      // #DPWCBID<1-19>
+    kWcbOct,     // #DPWCBOCT<o2>,<o3> (hex, in text)
+    kWcbQty,     // #DPWCBQTY<n>
+    kWcbCh,      // #DPWCBCH<n>
+    kWcbPw,      // #DPWCBPW<string> (in text)
+    kWcbCs,      // #DPWCBCS<0|1>
+    kDedup,      // #DPDEDUP<ms>, 0 = off
     // Sequence storage
     kSeqStore,  // #DPS<n>:<body> — arg = slot, text = body
     kSeqDelete, // #DPD<n>
