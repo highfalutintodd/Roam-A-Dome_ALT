@@ -207,7 +207,7 @@ void loop() {
 #endif
 
     // --- sequencer + motion (arbitration ladder, BEHAVIOR.md §5) --------------
-    sExec.pump(now, Serial);
+    sExec.pump(now, manualActive, Serial);
 
     MotionController::Inputs in;
     in.now = now;

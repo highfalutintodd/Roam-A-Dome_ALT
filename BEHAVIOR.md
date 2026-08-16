@@ -174,6 +174,7 @@ instead of silently corrupting it.
 | D8 | Settings in NVS with schema version + migration; never silently wiped | EEPROM magic+size check wiped all settings on any struct change |
 | D9 | Arrival requires `#DPDWELL` consecutive in-arc samples | single-sample arrival/departure |
 | D10 | SMQ Droid Remote and WiFi web UI removed/deferred | see §4 dropped table |
+| D11 | Manual input cancels a running sequence outright (console: `SEQUENCE CANCELLED`) | legacy only overrode the motor while the stick was deflected — the sequence resumed on release |
 
 ## 9. Open items to verify on the bench (Phase 0)
 

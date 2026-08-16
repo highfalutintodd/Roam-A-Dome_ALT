@@ -56,9 +56,18 @@ void CommandExec::handleLine(const char* line, Print& reply) {
     }
 }
 
-void CommandExec::pump(uint32_t now, Print& console) {
+void CommandExec::pump(uint32_t now, bool manualActive, Print& console) {
     if (!fSeq->active())
         return;
+    if (manualActive) {
+        // Legacy only overrode the motor while the stick was deflected — the
+        // sequence resumed on release, which reads as the dome "fighting back".
+        // v2: the operator's input cancels the sequence outright (BEHAVIOR D11).
+        console.println(F("SEQUENCE CANCELLED (manual override)"));
+        fSeq->stop();
+        fMotion->clearFault();
+        return;
+    }
     if (fMotion->busy())
         return; // blocking move in flight: sequencer holds (legacy sWaitTarget)
     if (fMotion->fault() != MotionController::Fault::kNone) {

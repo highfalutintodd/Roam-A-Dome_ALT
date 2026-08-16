@@ -46,8 +46,10 @@ class CommandExec {
     void handleLine(const char* line, Print& reply);
 
     // Per-loop: advance the sequencer (holds while a blocking move is in flight)
-    // and dispatch its steps. `console` receives step feedback.
-    void pump(uint32_t now, Print& console);
+    // and dispatch its steps. Manual input cancels the whole sequence (BEHAVIOR
+    // D11) — the operator's stick always ends automation, it never just pauses
+    // it. `console` receives step feedback.
+    void pump(uint32_t now, bool manualActive, Print& console);
 
     // Push settings values into MotionController tuning + SensorRing tuning.
     void applyTuning();
