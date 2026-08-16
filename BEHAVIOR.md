@@ -120,6 +120,7 @@ Sequences: `#DPS<n>:<steps>` store, `#DPL` list, `#DPD<n>` delete.
 | `#DPWCBCH<n>` | mesh channel | 1 |
 | `#DPWCBPW<str>` | mesh password | (unset) |
 | `#DPWCBCS<0|1>` | mesh checksum | 1 |
+| `#DPLCDSLEEP<sec>` | display backlight idle timeout, 0 = always on (display board only) | 300 |
 | `#DPSTATS` | dump parser/sensor/dedup/queue counters | — |
 
 ## 5. Passthrough & arbitration (priority ladder, evaluated every loop)
@@ -176,7 +177,27 @@ instead of silently corrupting it.
 | D10 | SMQ Droid Remote and WiFi web UI removed/deferred | see §4 dropped table |
 | D11 | Manual input cancels a running sequence outright (console: `SEQUENCE CANCELLED`) | legacy only overrode the motor while the stick was deflected — the sequence resumed on release |
 
-## 9. Open items to verify on the bench (Phase 0)
+## 9. Display (display board only)
+
+Dome position renders as three large 7-segment digits, `---` while the sensor is
+warming up or STALE, plus a small activity marker while automation drives. The
+backlight sleeps after `#DPLCDSLEEP` seconds (default 300; 0 = always on) with the
+dome parked and no input, and wakes in the same loop iteration on dome rotation
+(≥8°, above sensor drift), manual input, a running sequence, or any command on any
+transport. The panel retains its last frame while dark, so waking costs no redraw.
+
+## 10. Open items
+
+**E-stop release with the remotes off.** The latch clears only on fresh manual input
+or an explicit `:DP` command (§5). A droid parked in "sentry" mode — remotes off,
+`#DPAUTO1` wandering — therefore stays stopped after any `?STOP` until someone
+powers a remote back on. Sabé's DroidNet command library
+(`docs/reference/roam-a-dome.dcl.json`) defines no e-stop *or* resume command, and
+the bench log shows no mesh message on release, so RAD currently has no way to hear
+"all clear". Candidate fix: an explicit re-arm command (`#DPRESUME`) honored from
+any transport, so Sabé can clear the latch when its own e-stop is unlatched.
+
+## 11. Phase 0 bench checklist
 
 - Board variant (compact vs display) and exact pin map; boot banner + PCB photos.
 - Actual sensor frame rate at the configured baud (tunes §7 constants).

@@ -31,6 +31,12 @@ position sensor ring to know exactly where the dome is pointing.
   waits, inclusive random ranges (`:DPWR10,20`), and a new random-millisecond wait
   (`:DPWMR`), engineered so timing stays exact no matter what else is happening on
   the serial ports or the mesh.
+- **Self-calibrating drive polarity.** Which way the motor has to turn to make the
+  position reading go up is *learned* by watching the dome move under manual control,
+  so a closed-loop move can never run away from its target because of a swapped wire.
+- **Big-number position display.** On the display controller, dome position fills the
+  screen in seven-segment digits, with an idle backlight timeout (`#DPLCDSLEEP`) so a
+  parked droid isn't glowing all evening.
 - **Modern toolchain.** ESP32 Arduino core 3.3.4, reproducible one-command builds via
   `arduino-cli` profiles, and a modular codebase whose core logic runs — and is
   tested — on your desktop, no droid required.
@@ -39,14 +45,16 @@ position sensor ring to know exactly where the dome is pointing.
   documented, so existing controllers, sequences, and the DroidNet command library
   keep working unchanged.
 
-The complete behavioral specification — every command, every mode, and the handful of
-deliberate refinements — lives in [BEHAVIOR.md](BEHAVIOR.md).
+Every command, with ranges and defaults, is in [COMMANDS.md](COMMANDS.md). The
+complete behavioral specification — including the handful of deliberate refinements
+over the original — lives in [BEHAVIOR.md](BEHAVIOR.md).
 
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `RadFirmware/` | the v2 firmware (modular sources in `src/`, host tests in `test/native/`) |
+| `COMMANDS.md` | complete command reference — syntax, ranges, defaults |
 | `BEHAVIOR.md` | the observable contract the firmware is built and tested against |
 | `BENCH.md` | one-time bench checklist (board identification, settings capture) |
 | `tools/` | `capture_config.py` — capture/replay controller settings over USB |
@@ -75,17 +83,36 @@ Arduino dependencies and run natively:
 make -C RadFirmware/test/native test
 ```
 
+## Quick start
+
+1. Flash the firmware (see **Building**), then open a serial monitor at 115200 baud.
+2. Point the dome forward and set home: `#DPHOMEPOS`
+3. Try a move: `:DPA90` — then `:DPA0` to come back.
+4. Join the mesh: `#DPWCBPW<your mesh password>` then `#DPRESTART`
+5. Turn on idle dome motion: `#DPAUTO1`
+
+`#DPCONFIG` dumps every setting as replayable commands; `#DPSTATUS` and
+`#DPSTATS` show what the firmware is seeing.
+
 ## Status
 
-Work in progress, in phases — each phase leaves the droid fully functional:
+Built in phases — each phase left the droid fully functional:
 
 - [x] Phase 0 — behavioral spec, bench tooling
 - [x] Phase 1 — build scaffold, transparent motor passthrough
 - [x] Phase 2 — validated sensor pipeline
-- [ ] Phase 3 — motion controller and calibration
-- [x] Phase 4 (core) — sequence engine *(wiring lands with Phase 3)*
-- [ ] Phase 5 — WCB mesh integration
-- [ ] Phase 6 — position display, docs, release
+- [x] Phase 3 — motion controller and calibration
+- [x] Phase 4 — sequence engine
+- [x] Phase 5 — WCB mesh integration
+- [x] Phase 6 — position display, docs
+
+Field-verified on a live droid: manual passthrough, targeted moves, sequences,
+idle automation, home seek, position reporting, mesh join and e-stop, and the
+position display. Still to be exercised on-droid: on-device stored sequences
+(`#DPS<n>` / `:DPS<n>`) and the digital output pins (`:DPT`/`:DPP`), both
+covered by host tests. `#DPSETUP` auto-calibration, the VT100 joystick, the WiFi
+web UI, the rotary menu system, and the SMQ droid remote are deliberately not
+carried over — see [BEHAVIOR.md](BEHAVIOR.md) §4 and §8.
 
 ## Credits
 
