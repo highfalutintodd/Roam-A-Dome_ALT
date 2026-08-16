@@ -1,22 +1,27 @@
-// Roam-A-Dome v2 — Phase 2: passthrough + validated sensor pipeline.
+// Roam-A-Dome v2 — Phase 3: motion control + sequencer on the validated pipeline.
 // See ../BEHAVIOR.md for the observable contract this firmware implements.
 
 #include "pinmap.h"
 #include "src/CommandExec.h"
 #include "src/LineAssembler.h"
+#include "src/MotionController.h"
+#include "src/PinBank.h"
 #include "src/PwmIO.h"
 #include "src/RadVersion.h"
 #include "src/SensorRing.h"
+#include "src/SeqStore.h"
+#include "src/Sequencer.h"
 #include "src/Settings.h"
 #include "src/SyrenBus.h"
+
+#include <esp_random.h>
 
 using namespace rad;
 
 // UART assignment (see pinmap.h): UART1 = sensor ring, UART2 = Syren in/out.
 // Display board (S3): console is native USB CDC, so UART0 serves the command port.
 // Compact board (classic ESP32): UART0 is the USB bridge console; the command
-// port needs a software serial there — deferred until the bench session confirms
-// which board this actually is (BENCH.md §1).
+// port would need a software serial there — gated off until such a board shows up.
 HardwareSerial& syrenSerial = Serial2;
 HardwareSerial& sensorSerial = Serial1;
 #ifdef RAD_BOARD_DISPLAY
@@ -24,13 +29,21 @@ HardwareSerial cmdSerial(0);
 #define RAD_HAS_CMD_SERIAL 1
 #endif
 
+static uint32_t inclusiveRandom(uint32_t lo, uint32_t hi) {
+    return hi > lo ? lo + esp_random() % (hi - lo + 1) : lo;
+}
+
 static RadSettings sSettings;
 static RadSettingsStore sStore;
 static RuntimeStats sStats;
+static SensorRing sSensor;
+static MotionController sMotion(inclusiveRandom);
+static Sequencer sSeq(inclusiveRandom);
+static SeqStore sSeqStore;
+static PinBank sPins;
 static CommandExec sExec;
 static SyrenBus sSyren;
 static PwmIO sPwm;
-static SensorRing sSensor;
 static LineAssembler sConsoleLine;
 #ifdef RAD_HAS_CMD_SERIAL
 static LineAssembler sCmdLine;
@@ -47,20 +60,35 @@ void setup() {
     cmdSerial.begin(sSettings.serialBaud, SERIAL_8N1, RAD_PIN_CMD_RX, RAD_PIN_CMD_TX);
 #endif
 
-    sExec.begin(&sSettings, &sStore, &sStats, &sSensor);
+    static const int kDoutPins[] = RAD_PIN_DOUT;
+    sPins.begin(kDoutPins, sizeof(kDoutPins) / sizeof(kDoutPins[0]), sSettings.digitalPins);
+    sExec.begin(&sSettings, &sStore, &sStats, &sSensor, &sMotion, &sSeq, &sSeqStore, &sPins);
     sSyren.begin(syrenSerial, sSettings);
     sPwm.begin(RAD_PIN_PWM_IN, RAD_PIN_PWM_OUT, sSettings);
 
     Serial.printf("\nRoam-A-Dome v2 %s (%s)\n", RAD_FW_VERSION,
                   loaded ? "settings loaded" : "fresh defaults");
-    Serial.println("Passthrough active. #DPCONFIG for settings, #DPSTATUS for sensor.");
+    Serial.println("#DPCONFIG settings, #DPSTATUS state, :DPA<deg> to move.");
+}
+
+// Route a motor command (-100..100, +ve = increasing degrees) to the enabled
+// outputs, applying #DPINVERT here so every source is inverted consistently.
+static void driveMotor(int8_t pct) {
+    static int8_t sLastPct = 127; // force first write
+    if (sSettings.inverted)
+        pct = -pct;
+    if (pct == sLastPct)
+        return;
+    sLastPct = pct;
+    if (sSettings.serialOut)
+        sSyren.drive(pct);
+    if (sSettings.pwmOut)
+        sPwm.drivePercent(pct);
 }
 
 // Position report out the command serial on change: "#DP<mode><pos>" where mode is
-// '@' off / '!' home / '$' random / '%' target (BEHAVIOR.md §6). Automation modes
-// arrive in Phase 3; until then mode is always '@'.
-static void reportPosition(uint32_t now) {
-    (void)now;
+// '@' off, '!' home-seek, '$' random, '%' target (BEHAVIOR.md §6).
+static void reportPosition() {
 #ifdef RAD_HAS_CMD_SERIAL
     static int16_t sLastReported = -1;
     if (!sSensor.valid())
@@ -69,8 +97,13 @@ static void reportPosition(uint32_t now) {
     if (pos == sLastReported)
         return;
     sLastReported = pos;
+    char mode = '@';
+    if (sMotion.state() == MotionController::State::kTarget)
+        mode = sMotion.target() == sMotion.tuning.homePos ? '!' : '%';
+    else if (sMotion.tuning.autoMode)
+        mode = '$';
     char buf[16];
-    snprintf(buf, sizeof(buf), "#DP@%d", pos);
+    snprintf(buf, sizeof(buf), "#DP%c%d", mode, pos);
     cmdSerial.println(buf);
 #endif
 }
@@ -98,18 +131,19 @@ static void reportConsole(uint32_t now) {
 void loop() {
     uint32_t now = millis();
 
-    sSyren.pump(now);
-    sPwm.pump(now);
-    sStats.syrenChecksumErrors = sSyren.checksumErrors();
-
+    // --- inputs ---------------------------------------------------------------
+    sSyren.pump(now); // decodes frames; raw passthrough only if #DPSERIALIN1
     while (sensorSerial.available() > 0)
         sSensor.feed(static_cast<uint8_t>(sensorSerial.read()), now);
     sSensor.tick(now);
+    sStats.syrenChecksumErrors = sSyren.checksumErrors();
 
-    reportPosition(now);
-    reportConsole(now);
+    int8_t manualPct = sPwm.manualPercent(now);
+    if (manualPct == 0 && sSettings.serialIn)
+        manualPct = sSyren.manualPercent(now);
+    bool manualActive = manualPct != 0;
 
-    // Console: drain everything available this pass (legacy read one byte per loop).
+    // --- command ingress ------------------------------------------------------
     while (Serial.available() > 0) {
         if (const char* line = sConsoleLine.feed(static_cast<char>(Serial.read()))) {
             ++sStats.linesConsole;
@@ -129,6 +163,25 @@ void loop() {
 #else
     sStats.lineOverflows = sConsoleLine.overflows();
 #endif
+
+    // --- sequencer + motion (arbitration ladder, BEHAVIOR.md §5) --------------
+    sExec.pump(now, Serial);
+
+    MotionController::Inputs in;
+    in.now = now;
+    in.sensorValid = sSensor.valid();
+    in.position = sSensor.position();
+    in.sampleCount = sSensor.stats().accepted;
+    in.jumped = sSensor.consumeJump();
+    in.manualActive = manualActive;
+    in.estop = false; // WCB ?STOP latch lands in Phase 5
+    int8_t autoPct = sMotion.tick(in);
+
+    // Manual always wins; automation output is only used when manual is neutral.
+    driveMotor(manualActive ? manualPct : autoPct);
+
+    reportPosition();
+    reportConsole(now);
 
     delay(1);
 }

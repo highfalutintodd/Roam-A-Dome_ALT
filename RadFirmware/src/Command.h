@@ -27,6 +27,47 @@ enum class CmdId : uint8_t {
     kPwmIn,
     kPwmOut,
     kReport,
+    // Motion tuning + modes (Phase 3)
+    kMaxSpeed,
+    kMinSpeed,
+    kHomeSpeed,
+    kAutoSpeed,
+    kTargetSpeed,
+    kInputSpeed,
+    kFudge,
+    kScale,
+    kAScale,
+    kDScale,
+    kInvert,
+    kTimeout,
+    kAutoSafety,
+    kAutoRestart,
+    kHomeModeSet,
+    kAutoModeSet,
+    kAutoLeft,
+    kAutoRight,
+    kAutoMin,
+    kAutoMax,
+    kHomeMin,
+    kHomeMax,
+    kTargetMin,
+    kTargetMax,
+    kHomePos, // optional arg: bare = set home to current position
+    kPwmMin,
+    kPwmMax,
+    kPwmNeutral,
+    kPwmDeadband,
+    // Sensor validation + arbitration (new in v2)
+    kMaxRpm,
+    kSensTo,
+    kSensN,
+    kDwell,
+    kIdle,
+    kSerialCmd,
+    // Sequence storage
+    kSeqStore,  // #DPS<n>:<body> — arg = slot, text = body
+    kSeqDelete, // #DPD<n>
+    kSeqList,   // #DPL
 };
 
 constexpr uint16_t kMaxCommandText = 256; // matches legacy sequence-length ceiling

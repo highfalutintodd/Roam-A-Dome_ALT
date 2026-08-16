@@ -63,6 +63,26 @@ class Sequencer {
     bool active() const { return fPhase != Phase::kIdle; }
     bool waiting() const { return fPhase == Phase::kWaiting; }
 
+    // Validate a script without running it (used before storing #DPS slots).
+    static bool validateScript(const char* script) {
+        uint16_t cursor = 0;
+        bool any = false;
+        while (script[cursor] != '\0') {
+            const char* tok = script + cursor;
+            uint16_t len = 0;
+            while (tok[len] != '\0' && tok[len] != ':')
+                ++len;
+            cursor += len + (tok[len] == ':' ? 1 : 0);
+            if (len == 0)
+                continue;
+            SeqStep step;
+            if (!parseSeqStep(tok, len, step))
+                return false;
+            any = true;
+        }
+        return any;
+    }
+
     // Advance; returns the next step the caller must execute (valid until the next
     // tick() call), or nullptr. Wait steps never surface — they are absorbed here.
     const SeqStep* tick(uint32_t now) {
@@ -150,22 +170,7 @@ class Sequencer {
         return tok;
     }
 
-    bool validate(const char* script) const {
-        uint16_t cursor = 0;
-        while (script[cursor] != '\0') {
-            const char* tok = script + cursor;
-            uint16_t len = 0;
-            while (tok[len] != '\0' && tok[len] != ':')
-                ++len;
-            cursor += len + (tok[len] == ':' ? 1 : 0);
-            if (len == 0)
-                continue;
-            SeqStep step;
-            if (!parseSeqStep(tok, len, step))
-                return false;
-        }
-        return true;
-    }
+    bool validate(const char* script) const { return validateScript(script); }
 
     RandomFn fRng;
     char fScript[kMaxScript] = {};

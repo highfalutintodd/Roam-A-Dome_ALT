@@ -34,9 +34,48 @@ constexpr ConfigDef kConfigTable[] = {
     {"SENSORBAUD", ArgKind::kInt, CmdId::kSensorBaud},
     {"SERIALIN", ArgKind::kInt, CmdId::kSerialIn},
     {"SERIALOUT", ArgKind::kInt, CmdId::kSerialOut},
+    {"SERIALCMD", ArgKind::kInt, CmdId::kSerialCmd},
     {"PWMIN", ArgKind::kInt, CmdId::kPwmIn},
     {"PWMOUT", ArgKind::kInt, CmdId::kPwmOut},
+    {"PWMMIN", ArgKind::kInt, CmdId::kPwmMin},
+    {"PWMMAX", ArgKind::kInt, CmdId::kPwmMax},
+    {"PWMNEUTRAL", ArgKind::kInt, CmdId::kPwmNeutral},
+    {"PWMDEADBAND", ArgKind::kInt, CmdId::kPwmDeadband},
     {"REPORT", ArgKind::kInt, CmdId::kReport},
+    // Motion tuning + modes
+    {"MAXSPEED", ArgKind::kInt, CmdId::kMaxSpeed},
+    {"MINSPEED", ArgKind::kInt, CmdId::kMinSpeed},
+    {"HOMESPEED", ArgKind::kInt, CmdId::kHomeSpeed},
+    {"AUTOSPEED", ArgKind::kInt, CmdId::kAutoSpeed},
+    {"TARGETSPEED", ArgKind::kInt, CmdId::kTargetSpeed},
+    {"INPUTSPEED", ArgKind::kInt, CmdId::kInputSpeed},
+    {"FUDGE", ArgKind::kInt, CmdId::kFudge},
+    {"SCALE", ArgKind::kInt, CmdId::kScale},
+    {"ASCALE", ArgKind::kInt, CmdId::kAScale},
+    {"DSCALE", ArgKind::kInt, CmdId::kDScale},
+    {"INVERT", ArgKind::kInt, CmdId::kInvert},
+    {"TIMEOUT", ArgKind::kInt, CmdId::kTimeout},
+    {"AUTOSAFETY", ArgKind::kInt, CmdId::kAutoSafety},
+    {"AUTORESTART", ArgKind::kInt, CmdId::kAutoRestart},
+    {"HOME", ArgKind::kInt, CmdId::kHomeModeSet},
+    {"AUTO", ArgKind::kInt, CmdId::kAutoModeSet},
+    {"AUTOLEFT", ArgKind::kInt, CmdId::kAutoLeft},
+    {"AUTORIGHT", ArgKind::kInt, CmdId::kAutoRight},
+    {"AUTOMIN", ArgKind::kInt, CmdId::kAutoMin},
+    {"AUTOMAX", ArgKind::kInt, CmdId::kAutoMax},
+    {"HOMEMIN", ArgKind::kInt, CmdId::kHomeMin},
+    {"HOMEMAX", ArgKind::kInt, CmdId::kHomeMax},
+    {"TARGETMIN", ArgKind::kInt, CmdId::kTargetMin},
+    {"TARGETMAX", ArgKind::kInt, CmdId::kTargetMax},
+    {"HOMEPOS", ArgKind::kOptInt, CmdId::kHomePos},
+    // Sensor validation + arbitration (new in v2)
+    {"MAXRPM", ArgKind::kInt, CmdId::kMaxRpm},
+    {"SENSTO", ArgKind::kInt, CmdId::kSensTo},
+    {"SENSN", ArgKind::kInt, CmdId::kSensN},
+    {"DWELL", ArgKind::kInt, CmdId::kDwell},
+    {"IDLE", ArgKind::kInt, CmdId::kIdle},
+    // Sequence list ("S"/"D" forms are special-cased in parseConfig)
+    {"L", ArgKind::kNone, CmdId::kSeqList},
 };
 
 bool parseIntArg(const char* text, int32_t& value, bool required) {
@@ -58,6 +97,36 @@ ParseStatus parseConfig(const char* body, Command& out) {
     // at it over the mesh; they must be ignored silently, never answered.
     if (*body == '@' || *body == '!' || *body == '$' || *body == '%')
         return ParseStatus::kUnknown;
+
+    // Sequence store: #DPS<n>:<body>. Special-cased because the body is free text
+    // and 'S'+digit must not collide with SERIALBAUD/STATUS in the table.
+    if (body[0] == 'S' && body[1] >= '0' && body[1] <= '9') {
+        const char* p = body + 1;
+        long slot = std::strtol(p, const_cast<char**>(&p), 10);
+        if (slot < 0 || slot > 100 || *p != ':')
+            return ParseStatus::kInvalid;
+        ++p;
+        size_t len = std::strlen(p);
+        if (len == 0 || len >= kMaxCommandText)
+            return ParseStatus::kInvalid;
+        std::memcpy(out.text, p, len + 1);
+        out.id = CmdId::kSeqStore;
+        out.arg = static_cast<int32_t>(slot);
+        out.hasArg = true;
+        return ParseStatus::kOk;
+    }
+    // Sequence delete: #DPD<n> (all digits to end of line).
+    if (body[0] == 'D' && body[1] >= '0' && body[1] <= '9') {
+        const char* p = body + 1;
+        long slot = std::strtol(p, const_cast<char**>(&p), 10);
+        if (*p != '\0' || slot < 0 || slot > 100)
+            return ParseStatus::kInvalid;
+        out.id = CmdId::kSeqDelete;
+        out.arg = static_cast<int32_t>(slot);
+        out.hasArg = true;
+        return ParseStatus::kOk;
+    }
+
     const ConfigDef* best = nullptr;
     size_t bestLen = 0;
     for (const ConfigDef& def : kConfigTable) {

@@ -33,13 +33,26 @@ class PwmIO {
         return fPulseUs;
     }
 
-    bool manualActive(uint32_t now) const {
+    bool manualActive(uint32_t now) const { return manualPercent(now) != 0; }
+
+    // Pulse mapped to -100..100 around neutral, deadband-gated, scaled by
+    // #DPINPUTSPEED. 0 when neutral, inside the deadband, or stale.
+    int8_t manualPercent(uint32_t now) const {
         uint16_t us = pulseUs(now);
         if (us == 0)
-            return false;
+            return 0;
         uint16_t band = static_cast<uint16_t>(
             (uint32_t)(fSettings.pwmMaxUs - fSettings.pwmMinUs) * fSettings.pwmDeadbandPct / 100);
-        return us < fSettings.pwmNeutralUs - band || us > fSettings.pwmNeutralUs + band;
+        int32_t delta = static_cast<int32_t>(us) - fSettings.pwmNeutralUs;
+        if (delta > -band && delta < band)
+            return 0;
+        int32_t halfSpan = delta > 0 ? fSettings.pwmMaxUs - fSettings.pwmNeutralUs
+                                     : fSettings.pwmNeutralUs - fSettings.pwmMinUs;
+        if (halfSpan <= 0)
+            return 0;
+        int32_t pct = delta * 100 / halfSpan;
+        pct = pct > 100 ? 100 : (pct < -100 ? -100 : pct);
+        return static_cast<int8_t>(pct * fSettings.inputSpeed / 100);
     }
 
     void writePulseUs(uint16_t us) {
@@ -49,13 +62,11 @@ class PwmIO {
         ledcWrite(fOutPin, (static_cast<uint32_t>(us) << 14) / 20000);
     }
 
-    // Passthrough: mirror input to output (arbitration hooks in later phases).
-    void pump(uint32_t now) {
-        if (!fSettings.pwmIn || !fSettings.pwmOut)
-            return;
-        uint16_t us = pulseUs(now);
-        if (us != 0)
-            writePulseUs(us);
+    // Emit a motor command as a servo pulse (used when #DPPWMOUT is enabled).
+    void drivePercent(int8_t pct) {
+        int32_t halfSpan = pct >= 0 ? fSettings.pwmMaxUs - fSettings.pwmNeutralUs
+                                    : fSettings.pwmNeutralUs - fSettings.pwmMinUs;
+        writePulseUs(static_cast<uint16_t>(fSettings.pwmNeutralUs + halfSpan * pct / 100));
     }
 
   private:

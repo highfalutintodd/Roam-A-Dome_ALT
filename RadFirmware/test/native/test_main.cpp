@@ -76,6 +76,71 @@ TEST(parser_malformed_config_is_invalid) {
     CHECK(parseLine("#DPBOGUS", c) == ParseStatus::kInvalid);
 }
 
+TEST(parser_sequence_storage_commands) {
+    Command c;
+    CHECK(parseLine("#DPS3:D50:W2:D-50", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kSeqStore);
+    CHECK_EQ(c.arg, 3);
+    CHECK(std::strcmp(c.text, "D50:W2:D-50") == 0);
+
+    CHECK(parseLine("#DPS100:H", c) == ParseStatus::kOk);
+    CHECK_EQ(c.arg, 100);
+    CHECK(parseLine("#DPS101:H", c) == ParseStatus::kInvalid); // slot > 100
+    CHECK(parseLine("#DPS3:", c) == ParseStatus::kInvalid);    // empty body
+
+    CHECK(parseLine("#DPD0", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kSeqDelete);
+    CHECK_EQ(c.arg, 0);
+    CHECK(parseLine("#DPD12x", c) == ParseStatus::kInvalid);
+
+    CHECK(parseLine("#DPL", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kSeqList);
+
+    // 'S'+digit special case must not shadow table commands starting with S.
+    CHECK(parseLine("#DPSTATUS", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kStatus);
+    CHECK(parseLine("#DPSERIALBAUD9600", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kSerialBaud);
+    // 'D'+digit delete must not shadow DSCALE/DWELL.
+    CHECK(parseLine("#DPDSCALE50", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kDScale);
+    CHECK(parseLine("#DPDWELL3", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kDwell);
+}
+
+TEST(parser_motion_config_longest_prefix_families) {
+    Command c;
+    // The AUTO* family: bare AUTO is the mode toggle; longer names win.
+    CHECK(parseLine("#DPAUTO1", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kAutoModeSet);
+    CHECK(parseLine("#DPAUTOSPEED35", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kAutoSpeed);
+    CHECK(parseLine("#DPAUTOSAFETY1", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kAutoSafety);
+    CHECK(parseLine("#DPAUTOLEFT47", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kAutoLeft && c.arg == 47);
+    CHECK(parseLine("#DPAUTOMIN6", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kAutoMin);
+
+    // The HOME* family: HOMEPOS with and without argument.
+    CHECK(parseLine("#DPHOME1", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kHomeModeSet);
+    CHECK(parseLine("#DPHOMEPOS", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kHomePos && !c.hasArg);
+    CHECK(parseLine("#DPHOMEPOS240", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kHomePos && c.hasArg && c.arg == 240);
+    CHECK(parseLine("#DPHOMESPEED40", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kHomeSpeed);
+
+    // v2 sensor tuning.
+    CHECK(parseLine("#DPMAXRPM30", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kMaxRpm);
+    CHECK(parseLine("#DPSENSTO2500", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kSensTo);
+    CHECK(parseLine("#DPIDLE3000", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kIdle);
+}
+
 TEST(parser_motion_lines_preserved_verbatim) {
     Command c;
     CHECK(parseLine(":DPA90:W2:H", c) == ParseStatus::kOk);

@@ -32,6 +32,10 @@ class SyrenBus {
                 continue;
             fLastFrameMs = now;
             fLastNeutral = frame.isNeutral();
+            if (frame.isMotorCmd()) {
+                int pct = static_cast<int>(frame.data) * 100 / 127;
+                fLastPct = static_cast<int8_t>(frame.cmd == 1 ? -pct : pct);
+            }
             if (fOutEnabled) {
                 frame.addr = fAddrOut;
                 uint8_t buf[4];
@@ -63,6 +67,13 @@ class SyrenBus {
         return fLastFrameMs != 0 && !fLastNeutral && (now - fLastFrameMs) < windowMs;
     }
 
+    // Last manual motor command as -100..100 (0 when neutral or stale).
+    int8_t manualPercent(uint32_t now, uint32_t windowMs = 250) const {
+        if (fLastFrameMs == 0 || (now - fLastFrameMs) >= windowMs)
+            return 0;
+        return fLastPct;
+    }
+
     uint32_t checksumErrors() const { return fDecoder.checksumErrors(); }
 
   private:
@@ -73,6 +84,7 @@ class SyrenBus {
     bool fOutEnabled = true;
     uint32_t fLastFrameMs = 0;
     bool fLastNeutral = true;
+    int8_t fLastPct = 0;
 };
 
 } // namespace rad
