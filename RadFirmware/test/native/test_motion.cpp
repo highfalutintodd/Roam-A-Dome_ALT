@@ -103,12 +103,16 @@ TEST(motion_sensor_stale_cuts_move) {
     CHECK(mc.fault() == MotionController::Fault::kSensorLost);
 }
 
-TEST(motion_position_jump_aborts_move) {
+TEST(motion_position_jump_replans_instead_of_aborting) {
+    // A confirmed tracker correction (sticker-seam burst, over-limit motion) must
+    // not kill an absolute move — the controller re-plans from the corrected
+    // position with a fresh watchdog window and keeps driving.
     MotionController mc(midRng2);
     mc.moveToAbsolute(100, 0, 0, true);
     int8_t out = mc.tick(in(1000, 0, 1, true, false, /*jumped=*/true));
-    CHECK_EQ(out, 0);
-    CHECK(mc.fault() == MotionController::Fault::kJump);
+    CHECK(out > 0); // still driving toward 100 from the corrected position 0
+    CHECK(mc.busy());
+    CHECK(mc.fault() == MotionController::Fault::kNone);
 }
 
 TEST(motion_watchdog_stops_stuck_dome) {

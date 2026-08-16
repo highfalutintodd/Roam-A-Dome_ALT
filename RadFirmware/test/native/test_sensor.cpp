@@ -186,6 +186,34 @@ TEST(sensor_fast_legit_motion_tracks) {
     CHECK(circularDistance(sr.position(), deg) <= 6);
 }
 
+TEST(sensor_over_limit_motion_recovers_via_streak) {
+    // Dome moving faster than #DPMAXRPM allows: the gate rejects every frame and
+    // consecutive medians never agree, so pending confirmation can't fire. The
+    // reject-streak backstop must adopt reality (flagged as a jump) instead of
+    // freezing the position until the dome slows down.
+    SensorTuning t;
+    t.maxRpm = 10; // artificially low: 60 deg/s allowed
+    uint32_t now = 1000;
+    SensorRing sr(t);
+    for (int i = 0; i < SensorRing::kMedianWindow; ++i, now += 20)
+        frame(sr, 0, now);
+    CHECK(sr.valid());
+    (void)sr.consumeJump();
+
+    // 6 deg per 20 ms = 300 deg/s, 5x the limit.
+    int deg = 0;
+    for (int i = 0; i < 40; ++i, now += 20) {
+        deg = normalizeDeg(deg + 6);
+        frame(sr, deg, now);
+    }
+    // Position must have kept (roughly) up rather than staying frozen at ~0.
+    // Streak recovery fires every 10 rejected frames, so worst-case lag is
+    // ~10 frames of motion (60 deg here) plus median lag.
+    CHECK(circularDistance(sr.position(), deg) <= 75);
+    CHECK(circularDistance(sr.position(), 0) > 60); // definitely not frozen at start
+    CHECK(sr.stats().jumps >= 2u); // recoveries are flagged, never silent
+}
+
 // ------------------------------------------------------------------- seam
 
 TEST(sensor_median_correct_across_seam) {

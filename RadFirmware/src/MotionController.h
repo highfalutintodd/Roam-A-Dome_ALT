@@ -168,9 +168,12 @@ class MotionController {
             return 0;
         }
         if (in.jumped) {
-            fFault = Fault::kJump;
-            stop();
-            return 0;
+            // The tracker corrected itself (sticker-seam burst, over-limit motion,
+            // recovery). The target is absolute, so re-plan from the corrected
+            // position instead of aborting: fresh dwell + fresh watchdog window.
+            fDwellCount = 0;
+            fProgressPos = -1;
+            fProgressAt = in.now;
         }
 
         int16_t dist = signedCircularDelta(in.position, fTarget);

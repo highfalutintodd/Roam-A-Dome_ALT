@@ -14,7 +14,9 @@
 namespace rad {
 
 struct SensorTuning {
-    uint8_t maxRpm = 30;          // #DPMAXRPM: plausibility gate
+    // Bench-measured: this dome does ~41 RPM (248 deg/s) at 100% Syren output, so
+    // the gate must sit well above that or full-speed moves read as "jumps".
+    uint8_t maxRpm = 60;          // #DPMAXRPM: plausibility gate
     // The ring (DomeSensorFirmware32.ino:22,336) sends on change plus a heartbeat
     // resend every 1000 ms when parked — the timeout must clear that cadence with
     // margin or a stationary dome flaps between VALID and STALE.
@@ -22,6 +24,10 @@ struct SensorTuning {
     uint8_t confirmSamples = 3;   // #DPSENSN: samples to accept a discontinuity
     uint8_t slackDeg = 2;         // fixed gate slack
     uint8_t jitterDeg = 3;        // pending-jump agreement window
+    // Fail-open backstop: after this many consecutive gate rejections the median
+    // is adopted (flagged as a jump) so tracking can never freeze indefinitely —
+    // e.g. sustained motion faster than #DPMAXRPM, or a long sticker-seam burst.
+    uint8_t rejectStreakLimit = 10;
 };
 
 class SensorRing {
@@ -182,19 +188,29 @@ class SensorRing {
         if (dist <= allowed) {
             accept(med, nowMs, /*jump=*/false);
             fPendingCount = 0;
+            fRejectStreak = 0;
         } else {
             // Discontinuity: require N consecutive samples agreeing on the new
             // position before believing it.
+            ++fStats.rejectedRate;
+            ++fRejectStreak;
             if (fPendingCount > 0 && circularDistance(med, fPendingValue) <= fTuning.jitterDeg) {
                 if (++fPendingCount >= fTuning.confirmSamples) {
                     accept(med, nowMs, /*jump=*/true);
                     fPendingCount = 0;
+                    fRejectStreak = 0;
+                    return;
                 }
             } else {
                 fPendingValue = med;
                 fPendingCount = 1;
             }
-            ++fStats.rejectedRate;
+            if (fRejectStreak >= fTuning.rejectStreakLimit) {
+                // Fail-open: adopt reality rather than freeze (see tuning note).
+                accept(med, nowMs, /*jump=*/true);
+                fPendingCount = 0;
+                fRejectStreak = 0;
+            }
         }
     }
 
@@ -241,6 +257,7 @@ class SensorRing {
     bool fJumped = false;
     int16_t fPendingValue = 0;
     uint8_t fPendingCount = 0;
+    uint8_t fRejectStreak = 0;
     uint32_t fLastFrameMs = 0;
     uint32_t fLastAcceptMs = 0;
     Stats fStats;

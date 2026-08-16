@@ -58,7 +58,7 @@ struct RadSettings {
     uint8_t digitalPins = 0;       // #DPPIN defaults (bitmask, captured: 00000000)
 
     // Sensor validation + arbitration (new in v2)
-    uint8_t maxRpm = 30;           // #DPMAXRPM
+    uint8_t maxRpm = 60;           // #DPMAXRPM (dome measured ~41 RPM at full speed)
     uint16_t sensToMs = 2500;      // #DPSENSTO
     uint8_t sensN = 3;             // #DPSENSN
     uint8_t dwell = 3;             // #DPDWELL

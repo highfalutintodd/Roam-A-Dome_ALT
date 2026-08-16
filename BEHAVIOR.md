@@ -106,7 +106,7 @@ Sequences: `#DPS<n>:<steps>` store, `#DPL` list, `#DPD<n>` delete.
 
 | Command | Meaning | Default |
 |---|---|---|
-| `#DPMAXRPM<1-60>` | sensor plausibility gate: max physical dome RPM | 30 |
+| `#DPMAXRPM<1-60>` | sensor plausibility gate: max physical dome RPM (bench-measured ~41 RPM at 100% speed) | 60 |
 | `#DPSENSTO<ms>` | sensor staleness timeout (must exceed the ring's 1000 ms parked-heartbeat interval) | 2500 |
 | `#DPSENSN<n>` | consistent samples to confirm a position discontinuity | 3 |
 | `#DPDWELL<n>` | consecutive in-arc samples counted as "arrived" | 3 |
