@@ -76,7 +76,8 @@ Motion tuning: `#DPMAXSPEED<0-100>` (50), `#DPHOMESPEED` (40), `#DPAUTOSPEED` (3
 `#DPSCALE<0|1>`, `#DPASCALE<0-255>`, `#DPDSCALE<0-255>`, `#DPINVERT<0|1>`,
 `#DPTIMEOUT<sec>` (5).
 
-Modes: `#DPHOME<0|1>`, `#DPAUTO<0|1>`, `#DPAUTOSAFETY<0|1>`, `#DPAUTORESTART<0|1>`,
+Modes: `#DPHOME<0|1>`, `#DPAUTO<0|1>` (v2: runtime-only, off at boot — deviation D12),
+`#DPAUTOSAFETY<0|1>`, `#DPAUTORESTART<0|1>`,
 `#DPAUTOLEFT<0-180>` (80), `#DPAUTORIGHT<0-180>` (80), `#DPAUTOMIN/MAX<sec>` (6/8),
 `#DPHOMEMIN/MAX<sec>` (6/8), `#DPTARGETMIN/MAX<sec>` (0/1).
 
@@ -176,6 +177,7 @@ instead of silently corrupting it.
 | D9 | Arrival requires `#DPDWELL` consecutive in-arc samples | single-sample arrival/departure |
 | D10 | SMQ Droid Remote and WiFi web UI removed/deferred | see §4 dropped table |
 | D11 | Manual input cancels a running sequence outright (console: `SEQUENCE CANCELLED`) | legacy only overrode the motor while the stick was deflected — the sequence resumed on release |
+| D12 | `#DPAUTO` and `#DPHOME` are runtime-only: always **off** at boot regardless of what is stored | legacy persisted both, so a droid could power up and immediately start moving its own dome because a mode was enabled days earlier — unexpected motion is a safety hazard, so idle automation must be armed by the current session |
 
 ## 9. Display (display board only)
 

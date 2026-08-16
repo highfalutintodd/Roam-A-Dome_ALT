@@ -121,8 +121,8 @@ console prints `[DIR] learned: …` once it locks in.
 
 | Command | Range | Default | Meaning |
 |---|---|---|---|
-| `#DPAUTO<0\|1>` | | 0 | Random idle motion ("sentry" dome wandering). |
-| `#DPHOME<0\|1>` | | 0 | Return home automatically when idle and away from home. |
+| `#DPAUTO<0\|1>` | | 0 | Random idle motion ("sentry" dome wandering). **Always off at boot.** |
+| `#DPHOME<0\|1>` | | 0 | Return home automatically when idle and away from home. **Always off at boot.** |
 | `#DPAUTOLEFT<n>` | 0–180 | 47 | Random arc limit, one side of home. |
 | `#DPAUTORIGHT<n>` | 0–180 | 46 | Random arc limit, other side. |
 | `#DPAUTOMIN<sec>` / `#DPAUTOMAX<sec>` | | 6 / 8 | Delay range between random moves. |
@@ -134,6 +134,13 @@ console prints `[DIR] learned: …` once it locks in.
 
 Automation only runs when the sticks have been neutral for `#DPIDLE` ms **and**
 the sensor is valid. Manual input wins instantly, every time.
+
+**The self-starting modes never survive a reboot.** `#DPAUTO` and `#DPHOME` are
+runtime-only: set them any time, from any transport, but after a power cycle or
+`#DPRESTART` both come back **off**. A droid must never power up and start
+moving its own dome because a mode was left enabled days ago — so idle motion
+is always something the current session explicitly asked for. Everything else,
+including the arcs and delays those modes use, persists normally.
 
 ## Calibration
 

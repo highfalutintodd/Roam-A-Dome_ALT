@@ -48,6 +48,9 @@ struct RadSettings {
     uint8_t timeoutSec = 5;        // #DPTIMEOUT (stuck-dome watchdog)
     bool autoSafety = true;        // #DPAUTOSAFETY
     bool autoRestart = true;       // #DPAUTORESTART
+    // Self-starting modes. Stored like everything else, but FORCED OFF on load
+    // (RadSettingsStore::load, BEHAVIOR.md D12) — the dome must never start
+    // moving on its own just because the droid was powered on.
     bool homeMode = false;         // #DPHOME
     bool autoMode = false;         // #DPAUTO
     uint8_t autoLeft = 47;         // #DPAUTOLEFT (captured: 47)

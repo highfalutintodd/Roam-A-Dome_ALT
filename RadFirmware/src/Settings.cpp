@@ -34,6 +34,14 @@ bool RadSettingsStore::load(RadSettings& out) {
         // Older known versions get field-wise migration here as the schema grows.
     }
     prefs.end();
+
+    // SAFETY: the self-starting modes never survive a reboot (BEHAVIOR.md D12).
+    // A droid that powers up and starts moving its own dome — because someone
+    // left #DPAUTO1 set days ago — is a hazard and a surprise. Both modes are
+    // runtime-only state: settable any time from any transport, always off at
+    // boot, so the dome moves only when something explicitly asks it to.
+    out.autoMode = false;
+    out.homeMode = false;
     return ok;
 }
 

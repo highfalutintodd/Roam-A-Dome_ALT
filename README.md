@@ -89,7 +89,8 @@ make -C RadFirmware/test/native test
 2. Point the dome forward and set home: `#DPHOMEPOS`
 3. Try a move: `:DPA90` — then `:DPA0` to come back.
 4. Join the mesh: `#DPWCBPW<your mesh password>` then `#DPRESTART`
-5. Turn on idle dome motion: `#DPAUTO1`
+5. Turn on idle dome motion: `#DPAUTO1` — deliberately **not** remembered across
+   reboots, so the droid never powers up and starts moving on its own.
 
 `#DPCONFIG` dumps every setting as replayable commands; `#DPSTATUS` and
 `#DPSTATS` show what the firmware is seeing.
