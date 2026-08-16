@@ -4,3 +4,5 @@ About Roam-A-Dome.rtfd/
 __pycache__/
 releases/*.bin
 docs/capture/*.log
+RadFirmware/test/native/rad_tests
+RadFirmware/test/native/rad_tests.dSYM/

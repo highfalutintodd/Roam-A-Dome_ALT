@@ -53,6 +53,11 @@ bool parseIntArg(const char* text, int32_t& value, bool required) {
 }
 
 ParseStatus parseConfig(const char* body, Command& out) {
+    // Position-report echoes ("#DP@123" etc. — mode chars @ ! $ %). The dome WCB
+    // port has serial-in broadcast enabled, so RAD's own reports can come back
+    // at it over the mesh; they must be ignored silently, never answered.
+    if (*body == '@' || *body == '!' || *body == '$' || *body == '%')
+        return ParseStatus::kUnknown;
     const ConfigDef* best = nullptr;
     size_t bestLen = 0;
     for (const ConfigDef& def : kConfigTable) {

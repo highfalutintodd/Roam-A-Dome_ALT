@@ -14,6 +14,13 @@ TEST(parser_blank_and_unknown_lines_are_silent) {
     CHECK(parseLine("   ", c) == ParseStatus::kEmpty);
     CHECK(parseLine("&SABE,HB,0.36.0,120", c) == ParseStatus::kUnknown);
     CHECK(parseLine("READ: X [88]", c) == ParseStatus::kUnknown);
+    // Position-report echoes: the dome WCB port broadcasts serial-in onto the
+    // mesh, so RAD's own "#DP<mode><pos>" reports can arrive back — silence, not
+    // "Invalid", or RAD would argue with its own telemetry.
+    CHECK(parseLine("#DP@123", c) == ParseStatus::kUnknown);
+    CHECK(parseLine("#DP!240", c) == ParseStatus::kUnknown);
+    CHECK(parseLine("#DP$77", c) == ParseStatus::kUnknown);
+    CHECK(parseLine("#DP%180", c) == ParseStatus::kUnknown);
 }
 
 TEST(parser_config_basic) {

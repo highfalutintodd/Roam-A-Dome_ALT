@@ -21,8 +21,10 @@ try:
 except ImportError:
     sys.exit("pyserial is required: pip3 install pyserial")
 
-# ESP32 core debug spam, e.g. "[  5035][D][esp32-hal-rmt.c:202] _rmtRxTask(): ..."
-DEBUG_LINE = re.compile(r"^\[\s*\d+\]\[[VDIWE]\]")
+# ESP32 core debug spam ("[  5035][D][esp32-hal-rmt.c:202] ..."), the legacy
+# firmware's per-byte RX echo ("READ: X [88]"), and its "Invalid" replies to
+# mesh chatter — none of it is capture data.
+DEBUG_LINE = re.compile(r"^(\[\s*\d+\]\[[VDIWE]\]|READ: |Invalid$)")
 
 
 def strip_debug(text: str) -> str:
