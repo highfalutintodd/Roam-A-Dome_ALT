@@ -33,15 +33,14 @@
 //   - Feed each read through update(); emit only when it returns true.
 //
 //   static PositionDebounce sDebounce;
-//   void loop() {
-//     unsigned code = sDomePosition.readSensors();       // existing 9-bit read
-//     int      raw  = sDomePosition.getDomeAngle(code);  // existing table (-1 = invalid)
-//     int      out;
-//     if (sDebounce.update(code, raw, millis(), out)) {
-//       snprintf(buf, sizeof(buf), "#DP@%d", out);
-//       REPORT_SERIAL.println(buf);                      // existing frame, unchanged
-//     }
-//   }
+//   // in loop(), replace `short angle = sDomePosition.getAngle();` with:
+//   unsigned code = sDomePosition.readSensors();       // existing 9-bit read
+//   int      out;
+//   static short sHeldAngle = -1;
+//   if (sDebounce.update(code, sDomePosition.getDomeAngle(code), millis(), out))
+//       sHeldAngle = out;                              // getDomeAngle(): -1 if invalid
+//   short angle = sHeldAngle;                          // -1 until first lock
+//   // then gate the existing report on `if (angle >= 0)` and print #DP@ as before.
 //
 // (Debounce the RAW code, not sDomePosition.getAngle() — getAngle() medians after
 //  decode, which can't undo a stuck or transition-aliased code.)
