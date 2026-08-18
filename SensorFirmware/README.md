@@ -138,10 +138,11 @@ echoes — works unchanged on the now-clean `angle`.
 ### Two things to confirm
 
 - **Poll fast.** `PositionDebounce` counts *reads*, not milliseconds. Upstream
-  `loop()` has no `delay()`, so it free-runs at several kHz — the default
-  `kStableReads = 4` is then a millisecond or two of debounce: invisible in
-  motion, long enough to outlast any edge transition. If you ever add a loop
-  delay, drop `kStableReads` to 2–3.
+  `loop()` has no `delay()`, so it free-runs at several kHz — `kStableReads = 6`
+  (raised from 4 after mounted testing to reject a rare stable-but-wrong ~299-304
+  alias) is then a few milliseconds of debounce: invisible in motion, long enough
+  to outlast any edge transition or stray alias. Go to 8 if one still slips
+  through; drop to 2–3 only if you ever add a loop delay.
 - **Heartbeat matches.** `kHeartbeatMs = 1000` equals `POSITION_RESEND_INTERVAL`,
   so the RaD side never trips its 2500 ms `STALE` timeout.
 

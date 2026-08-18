@@ -29,7 +29,7 @@
 //
 // INTEGRATION (see README.md for the full walkthrough):
 //   - Read the sensors FAST — poll in a tight loop (aim ~1 kHz). With the default
-//     kStableReads=4 that is ~4 ms of debounce: imperceptible lag, kills flicker.
+//     kStableReads=6 that is a few ms of debounce: imperceptible lag, kills flicker.
 //   - Feed each read through update(); emit only when it returns true.
 //
 //   static PositionDebounce sDebounce;
@@ -56,8 +56,13 @@ class PositionDebounce {
   public:
     // Consecutive identical raw reads required before a code is believed. At a
     // ~1 kHz poll this is a few milliseconds — long enough to outlast any edge
-    // transition or dither, short enough to be invisible in motion.
-    static constexpr uint8_t kStableReads = 4;
+    // transition or dither, short enough to be invisible in motion. Raised from 4
+    // to 6 after mounted testing: a rare stable-but-wrong alias (~299-304 in the
+    // 195-210 arc) was persisting just long enough to clear 4 reads and cause a
+    // one-frame wrong-direction kick. 6 makes it hold 50% longer to sneak through;
+    // go to 8 if a stray one still gets by. (Fast full-speed sweeps still hold each
+    // code well past this, so it does not lag motion.)
+    static constexpr uint8_t kStableReads = 6;
 
     // Resend the last good angle at least this often even when nothing changes,
     // so the RaD side never times the link out as STALE. Match this to whatever
