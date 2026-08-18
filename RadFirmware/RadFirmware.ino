@@ -23,6 +23,7 @@
 #endif
 
 #include <esp_random.h>
+#include <strings.h> // strcasecmp — case-insensitive match for #DPDIRLEARN
 
 using namespace rad;
 
@@ -63,6 +64,7 @@ static DisplayS3 sDisplay;
 // Motor sign state; see the motor-output section below for the two conventions.
 static int8_t sWirePct = 0;   // last wire-level command actually sent
 static int8_t sDirSign = 0;   // learned wire->degrees sign; 0 = not yet learned
+static bool sDirRelearn = false; // #DPDIRLEARN re-armed a one-shot polarity learn
 
 void setup() {
     Serial.begin(115200);
@@ -124,13 +126,39 @@ static void driveMotor(int8_t wire, uint32_t now) {
 }
 
 // Learn drive polarity from manual motion: correlate the wire command with the
-// validated sensor delta. ±10 degrees of consistent evidence locks it in;
-// contradicting evidence can re-flip it later (belt slip, rewiring).
+// validated sensor delta. ±10 degrees of consistent evidence locks it in.
+//
+// Learning is a ONE-TIME event, never a running background process. Drive
+// polarity is physical wiring — it cannot change while the droid is powered — so
+// once the sign is known (restored from NVS or learned this session) the learner
+// goes dormant and never second-guesses it. Re-arming is explicit: #DPDIRLEARN,
+// for after a rewire or belt swap.
+//
+// Why this matters (field failure, Aug 2026): motor-current noise corrupted the
+// sensor line during a target hold. The tracker's own filter was rejecting the
+// glitches, but the learner kept re-deriving the sign from the real, consistent
+// runaway motion that a wrong sign produced — flipping polarity mid-hold. Each
+// flip inverted the closed loop into POSITIVE feedback, so the dome bolted at
+// full speed until the next flip yanked it back: the "flip out". Freezing the
+// sign once known removes that feedback path entirely; the electrical noise is a
+// separate, physical fix.
 static void learnPolarity(uint32_t now) {
     static uint32_t sLastAccepted = 0;
+    static uint32_t sLastJumps = 0;
     static int32_t sAccum = 0;
     static int8_t sPrevSign = 0;
     static uint32_t sSignChangedAt = 0;
+
+    if (sDirRelearn) { // #DPDIRLEARN re-armed calibration: forget prior evidence
+        sDirRelearn = false;
+        sAccum = 0;
+        sLastAccepted = sSensor.stats().accepted;
+        sLastJumps = sSensor.stats().jumps;
+    }
+
+    // Locked once known — this is the fix for the runtime sign-flip runaway.
+    if (sDirSign != 0)
+        return;
 
     // The dome coasts the old way for a moment after every stick reversal, which
     // reads as contradictory evidence — ignore samples until the command
@@ -148,24 +176,32 @@ static void learnPolarity(uint32_t now) {
     if (accepted == sLastAccepted || !sSensor.valid())
         return;
     sLastAccepted = accepted;
+
+    // Confidence gate: learn only from motion the tracker itself trusts. If it
+    // flagged a discontinuity since the last accepted sample, this window is
+    // glitch-adjacent — discard the accumulated evidence rather than integrate
+    // it. (Gate-rejected samples never reach here; they don't advance `accepted`.)
+    uint32_t jumps = sSensor.stats().jumps;
+    if (jumps != sLastJumps) {
+        sLastJumps = jumps;
+        sAccum = 0;
+        return;
+    }
+
     if (sWirePct >= -25 && sWirePct <= 25)
         return; // too gentle to attribute motion confidently
     int16_t d = sSensor.lastDelta();
     sAccum += (sWirePct > 0) ? d : -d;
     if (sAccum >= 10) {
         sAccum = 10;
-        if (sDirSign != 1) {
-            sDirSign = 1;
-            sPolarity.save(sDirSign); // survives reboots; re-learns if it ever flips
-            Serial.println(F("[DIR] learned: positive wire increases degrees"));
-        }
+        sDirSign = 1;
+        sPolarity.save(sDirSign); // survives reboots; frozen until #DPDIRLEARN
+        Serial.println(F("[DIR] learned: positive wire increases degrees"));
     } else if (sAccum <= -10) {
         sAccum = -10;
-        if (sDirSign != -1) {
-            sDirSign = -1;
-            sPolarity.save(sDirSign);
-            Serial.println(F("[DIR] learned: positive wire decreases degrees"));
-        }
+        sDirSign = -1;
+        sPolarity.save(sDirSign);
+        Serial.println(F("[DIR] learned: positive wire decreases degrees"));
     }
 }
 
@@ -219,6 +255,20 @@ static void reportConsole(uint32_t now) {
 static void handleCommandLine(const char* line, Print& reply) {
     if (line[0] == ':' && line[1] == 'D' && line[2] == 'P')
         gWcb.clearEstop();
+
+    // #DPDIRLEARN: forget the learned drive polarity and re-derive it from the
+    // next manual jog. Polarity is otherwise frozen for life once known (see
+    // learnPolarity), so this is the deliberate, operator-driven recalibration
+    // after a rewire or belt swap. Intercepted here rather than in the parser:
+    // the "#DPD" prefix belongs to #DPD<n> (sequence delete), and this keeps the
+    // two from colliding.
+    if (!strcasecmp(line, "#DPDIRLEARN")) {
+        sDirSign = 0;
+        sDirRelearn = true;
+        sPolarity.clear();
+        reply.println(F("[DIR] cleared — jog the dome to re-learn polarity"));
+        return;
+    }
 #ifdef RAD_USE_DISPLAY
     sDisplay.noteActivity(millis()); // someone is talking to the droid: wake the screen
 #endif

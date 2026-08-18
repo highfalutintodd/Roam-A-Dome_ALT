@@ -122,9 +122,22 @@ The result is **remembered across reboots** — later boots print
 Until something has been learned, automation falls back to a guess derived from
 `#DPINVERT`, which may be backwards depending on how the motor is wired; if you
 ever see the dome set off the wrong way on a fresh controller, that is what
-you're watching, and it self-corrects within about 10° of movement. `#DPZERO`
-and `#DPFACTORY` clear the learned value along with everything else, and the
-learner will re-learn (and re-save) it if the wiring or belt ever changes.
+you're watching, and it self-corrects within about 10° of movement.
+
+**Learning is one-time, and locked once known.** Wire polarity is physical — it
+cannot change while the droid is powered — so once the sign is known (restored
+from NVS or learned this session) the learner goes dormant and never revises it
+at runtime. This is deliberate: a mid-run "flip" is always the sensor lying
+(e.g. motor-current noise on the sensor line), and re-deriving the sign from it
+inverts the position loop into positive feedback and sends the dome into a
+full-speed runaway. To re-calibrate after a rewire or belt swap, run
+**`#DPDIRLEARN`**: it clears the stored sign and re-learns from your next manual
+jog. `#DPZERO` and `#DPFACTORY` also clear the learned value along with
+everything else.
+
+| Command | Effect |
+| --- | --- |
+| `#DPDIRLEARN` | Forget learned drive polarity; re-learn from the next manual jog. |
 
 ## Modes and idle automation
 

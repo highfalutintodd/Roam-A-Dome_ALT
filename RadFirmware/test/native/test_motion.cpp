@@ -115,6 +115,26 @@ TEST(motion_position_jump_replans_instead_of_aborting) {
     CHECK(mc.fault() == MotionController::Fault::kNone);
 }
 
+TEST(motion_in_arc_jump_does_not_restart_dwell) {
+    // A tracker jump whose corrected position is already inside the arrival arc
+    // must NOT wipe the dwell and restart the hold — otherwise a glitch-prone arc
+    // (motor-current noise near the target) resets arrival every tick and the
+    // dome hunts forever instead of latching idle. Regression for the Aug 2026
+    // "flip out": here the loop still settles despite a jump flagged at target.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveToAbsolute(180, 0, 0, true);
+    uint32_t now = 0, samples = 0;
+    CHECK(mc.tick(in(now, 90, ++samples)) > 0);            // driving toward 180
+    CHECK_EQ(mc.tick(in(now += 20, 179, ++samples)), 0);   // in arc: dwell 1
+    CHECK_EQ(mc.tick(in(now += 20, 181, ++samples, true, false, /*jumped=*/true)), 0);
+    CHECK(mc.busy());                                      // dwell 2, not reset
+    CHECK_EQ(mc.tick(in(now += 20, 180, ++samples)), 0);   // dwell 3 -> arrived
+    CHECK(!mc.busy());
+    CHECK(mc.arrived());
+    CHECK(mc.state() == MotionController::State::kIdle);
+}
+
 TEST(motion_watchdog_stops_stuck_dome) {
     MotionController mc(midRng2);
     mc.tuning.timeoutSec = 5;

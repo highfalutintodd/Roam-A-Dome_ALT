@@ -1,5 +1,11 @@
 .DS_Store
 About Roam-A-Dome.rtfd/
+
+# iCloud Drive "conflict copy" duplicates (e.g. "Foo 2.cpp", "sketch 3.yaml").
+# arduino-cli compiles every .cpp under src/, so a stray "Foo 2.cpp" alongside
+# "Foo.cpp" defines every symbol twice and breaks the link. Keep them out.
+* [0-9].*
+* [0-9]/
 *.pyc
 __pycache__/
 releases/

@@ -167,17 +167,21 @@ class MotionController {
             stop();
             return 0;
         }
-        if (in.jumped) {
+        int16_t dist = signedCircularDelta(in.position, fTarget);
+        int16_t adist = dist < 0 ? -dist : dist;
+
+        if (in.jumped && adist > tuning.fudge) {
             // The tracker corrected itself (sticker-seam burst, over-limit motion,
-            // recovery). The target is absolute, so re-plan from the corrected
-            // position instead of aborting: fresh dwell + fresh watchdog window.
+            // recovery) and the corrected position is OUTSIDE the arrival arc, so
+            // re-plan from it: fresh dwell + fresh watchdog window. But a jump that
+            // lands us already inside the arc must NOT wipe an almost-complete
+            // dwell — otherwise a glitch-prone arc (motor noise near the target)
+            // keeps resetting arrival and the hold hunts forever instead of
+            // latching idle. Inside the arc, fall through and let the dwell run.
             fDwellCount = 0;
             fProgressPos = -1;
             fProgressAt = in.now;
         }
-
-        int16_t dist = signedCircularDelta(in.position, fTarget);
-        int16_t adist = dist < 0 ? -dist : dist;
 
         // Dwell + watchdog progress advance only on fresh accepted samples.
         if (in.sampleCount != fLastSample) {

@@ -179,6 +179,8 @@ instead of silently corrupting it.
 | D11 | Manual input cancels a running sequence outright (console: `SEQUENCE CANCELLED`) | legacy only overrode the motor while the stick was deflected — the sequence resumed on release |
 | D12 | `#DPAUTO` and `#DPHOME` are runtime-only: always **off** at boot regardless of what is stored | legacy persisted both, so a droid could power up and immediately start moving its own dome because a mode was enabled days earlier — unexpected motion is a safety hazard, so idle automation must be armed by the current session |
 | D13 | Learned drive polarity persists across reboots (own NVS key, `[DIR] restored:` at boot; cleared by `#DPZERO`/`#DPFACTORY`) | it was RAM-only, so every boot restarted at "unknown" and the first automated move ran on the `#DPINVERT`-derived guess — measured travelling ~54° the wrong way on the bench before the learner corrected it |
+| D14 | Polarity is learned once, then **frozen** until an explicit `#DPDIRLEARN`; the learner never re-derives the sign at runtime | it re-learned from motion the sensor filter was already rejecting (motor-current noise), flipped the sign mid-hold, inverted the position loop into positive feedback and ran the dome away at full speed — the "flip out" |
+| D15 | A tracker jump inside the arrival arc does not restart the arrival dwell | a glitch-prone arc near the target reset arrival every tick, so the hold hunted forever instead of latching idle |
 
 ## 9. Display (display board only)
 

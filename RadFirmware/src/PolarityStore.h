@@ -34,6 +34,10 @@ class PolarityStore {
     // learner, and an unconditional write would burn a flash cycle every boot.
     void save(int8_t sign);
 
+    // Erases the stored sign back to "not learned". Used by the #DPDIRLEARN
+    // calibration command so the learner re-derives polarity from scratch.
+    void clear();
+
   private:
     int8_t fLast = 0;
 };

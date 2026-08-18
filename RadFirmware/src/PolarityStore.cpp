@@ -35,6 +35,15 @@ void PolarityStore::save(int8_t sign) {
     fLast = sign;
 }
 
+void PolarityStore::clear() {
+    fLast = 0;
+    Preferences prefs;
+    if (!prefs.begin(kNamespace, /*readOnly=*/false))
+        return;
+    prefs.remove(kKey);
+    prefs.end();
+}
+
 } // namespace rad
 
 #endif // ARDUINO
