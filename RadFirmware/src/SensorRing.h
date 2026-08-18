@@ -44,16 +44,24 @@ class SensorRing {
 
     void setTuning(const SensorTuning& t) { fTuning = t; }
 
-    // Report whether the motor is currently commanded to move. Call once per
-    // control loop. A dome with the motor off cannot change position, so once it
-    // has been off longer than coastMs the parked-hold in onFrame() rejects any
-    // reported jump as an encoder misread rather than believing the dome moved.
-    // (Only armed after the first real drive: fLastDriveMs==0 keeps boot-time and
-    // host-test behaviour on the plain gate.)
-    void noteDrive(bool active, uint32_t nowMs) {
-        fDriveActive = active;
+    // Report whether the dome is under active control this loop — i.e. a move is
+    // in progress (target/spin) or the operator is driving it manually. Call once
+    // per control loop. Only when it has been INACTIVE (a completed move / true
+    // idle) longer than coastMs does the parked-hold in onFrame() engage and hold
+    // position against encoder misreads.
+    //
+    // Crucially this is "a move is running", NOT merely "the motor is energised":
+    // a target move sits at wire==0 while it settles inside the arrival arc, and
+    // if the hold froze there it would pin the position at a value a flickering
+    // encoder never re-reports, so the arrival dwell could never complete and the
+    // move would hang forever in `target` (observed: K-ARDS stuck, orange square
+    // latched). Staying active until the controller reaches idle lets arrival run.
+    // (Only armed after the first active period: fLastActiveMs==0 keeps boot-time
+    // and host-test behaviour on the plain gate.)
+    void noteActive(bool active, uint32_t nowMs) {
+        fActive = active;
         if (active)
-            fLastDriveMs = nowMs;
+            fLastActiveMs = nowMs;
     }
 
     // Feed one raw byte from the sensor serial stream; call tick() regularly too.
@@ -194,18 +202,19 @@ class SensorRing {
         fWindowIdx = (fWindowIdx + 1) % kMedianWindow;
         int16_t med = circularMedian(fPosition);
 
-        // Parked hold. With the motor commanded off past the coast window the dome
-        // is mechanically incapable of moving, so a reported change beyond sensor
-        // dither is the encoder decoding a marginal code to a stable-but-wrong
-        // angle — not a real move. Hold the last good position and never adopt the
-        // lie (no confirm, no fail-open); tracking re-locks on the next commanded
-        // move, where genuine motion justifies the change. This is what stops a
-        // parked dome from reading a wrong angle for seconds and corrupting the
-        // start point of the following move. Armed only after the first real drive
-        // (fLastDriveMs != 0), so boot-time acquisition and host tests are
-        // unaffected.
-        if (!fDriveActive && fLastDriveMs != 0 &&
-            (nowMs - fLastDriveMs) > fTuning.coastMs) {
+        // Parked hold. Once no move has been active past the coast window the dome
+        // is at rest and mechanically incapable of moving, so a reported change
+        // beyond sensor dither is the encoder decoding a marginal code to a
+        // stable-but-wrong angle — not a real move. Hold the last good position and
+        // never adopt the lie (no confirm, no fail-open); tracking re-locks on the
+        // next move, where genuine motion justifies the change. This is what stops
+        // a parked dome from reading a wrong angle for seconds and corrupting the
+        // start point of the following move. Gated on the controller being idle
+        // (noteActive), NOT on wire==0, so a target move settling inside the arrival
+        // arc is never frozen mid-arrival. Armed only after the first active period
+        // (fLastActiveMs != 0), so boot-time acquisition and host tests are unaffected.
+        if (!fActive && fLastActiveMs != 0 &&
+            (nowMs - fLastActiveMs) > fTuning.coastMs) {
             if (circularDistance(med, fPosition) <= fTuning.slackDeg) {
                 accept(med, nowMs, /*jump=*/false); // genuine dither: stay in sync
             } else {
@@ -299,8 +308,8 @@ class SensorRing {
     uint8_t fRejectStreak = 0;
     uint32_t fLastFrameMs = 0;
     uint32_t fLastAcceptMs = 0;
-    bool fDriveActive = false;    // motor commanded to move this loop (noteDrive)
-    uint32_t fLastDriveMs = 0;    // last time the motor was driving; 0 = never yet
+    bool fActive = false;         // a move/manual drive is active this loop (noteActive)
+    uint32_t fLastActiveMs = 0;   // last time control was active; 0 = never yet
     Stats fStats;
 };
 

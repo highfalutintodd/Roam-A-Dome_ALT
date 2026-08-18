@@ -365,11 +365,15 @@ void loop() {
         wire = static_cast<int8_t>(autoPct * dir);
     }
     driveMotor(wire, now);
-    // Tell the sensor tracker whether the dome is under power. When it is not, the
-    // dome cannot move, so the tracker holds position and rejects encoder misreads
-    // instead of chasing a phantom (see SensorRing::noteDrive). One-loop lag from
-    // feeding the sensor at the top of loop() is immaterial next to the coast window.
-    sSensor.noteDrive(wire != 0, now);
+    // Tell the sensor tracker whether a move is in progress. "Active" means the
+    // controller is targeting/spinning or the operator is driving manually — NOT
+    // merely that the motor is energised, because a target move sits at wire==0
+    // while it settles inside the arrival arc. Only when the controller is idle
+    // does the tracker hold position and reject encoder misreads (see
+    // SensorRing::noteActive). Gating on wire==0 instead would freeze a settling
+    // move at a value a flickering encoder never re-reports, hanging arrival.
+    bool controlActive = manualActive || sMotion.state() != MotionController::State::kIdle;
+    sSensor.noteActive(controlActive, now);
     learnPolarity(now);
 
     // --- telemetry ------------------------------------------------------------

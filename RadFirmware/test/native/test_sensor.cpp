@@ -177,12 +177,12 @@ TEST(sensor_parked_hold_rejects_phantom_jump) {
     // off and the position stays frozen — no confirm, no fail-open adoption.
     uint32_t now;
     SensorRing sr = warmedUp(200, &now);
-    sr.noteDrive(true, now);         // arm: the dome has driven at least once
+    sr.noteActive(true, now);         // arm: control was active at least once
     now += kDt;
-    sr.noteDrive(false, now);        // motor commanded off
+    sr.noteActive(false, now);        // move finished, controller idle
     now += 500;                      // past coastMs (400)
     for (int i = 0; i < 8; ++i, now += kDt) {
-        sr.noteDrive(false, now);
+        sr.noteActive(false, now);
         frame(sr, 299, now);         // encoder lies: a wrong-but-stable code
     }
     CHECK(sr.valid());
@@ -195,12 +195,12 @@ TEST(sensor_parked_hold_tracks_dither) {
     // position never drifts away from truth.
     uint32_t now;
     SensorRing sr = warmedUp(200, &now);
-    sr.noteDrive(true, now);
+    sr.noteActive(true, now);
     now += kDt;
-    sr.noteDrive(false, now);
+    sr.noteActive(false, now);
     now += 500;
     for (int i = 0; i < 4; ++i, now += kDt) {
-        sr.noteDrive(false, now);
+        sr.noteActive(false, now);
         frame(sr, 201, now);         // 1 deg: within slackDeg
     }
     CHECK(circularDistance(sr.position(), 201) <= 1);
@@ -211,20 +211,38 @@ TEST(sensor_parked_hold_reacquires_when_driven) {
     // tracked. (A dome hand-moved while parked re-locks on the next commanded move.)
     uint32_t now;
     SensorRing sr = warmedUp(200, &now);
-    sr.noteDrive(true, now);
+    sr.noteActive(true, now);
     now += kDt;
-    sr.noteDrive(false, now);
+    sr.noteActive(false, now);
     now += 500;
     for (int i = 0; i < 4; ++i, now += kDt) { // parked: 260 rejected, held at 200
-        sr.noteDrive(false, now);
+        sr.noteActive(false, now);
         frame(sr, 260, now);
     }
     CHECK_EQ(sr.position(), 200);
-    for (int i = 0; i < 4; ++i, now += kDt) { // motor on: 260 is now believed
-        sr.noteDrive(true, now);
+    for (int i = 0; i < 4; ++i, now += kDt) { // active again: 260 is now believed
+        sr.noteActive(true, now);
         frame(sr, 260, now);
     }
     CHECK(circularDistance(sr.position(), 260) <= 6);
+}
+
+TEST(sensor_active_move_is_never_frozen) {
+    // Regression for the K-ARDS hang: while a move is active (noteActive true),
+    // the parked-hold must NEVER engage — even past coastMs — so a target move
+    // settling inside the arrival arc keeps getting fresh accepted samples and
+    // its dwell can complete. Freezing here (the old wire==0 gate) pinned the
+    // position at a value the flickering encoder never re-reported, so arrival
+    // never finished and the move hung in `target` forever.
+    uint32_t now;
+    SensorRing sr = warmedUp(203, &now);
+    uint32_t acceptedBefore = sr.stats().accepted;
+    for (int i = 0; i < 12; ++i, now += kDt) {
+        sr.noteActive(true, now);          // move still in progress (well past coast)
+        frame(sr, (i % 2) ? 205 : 201, now); // small in-arc dither around target
+    }
+    CHECK(sr.stats().accepted > acceptedBefore); // frames keep flowing, not frozen
+    CHECK(circularDistance(sr.position(), 203) <= 3);
 }
 
 TEST(sensor_fast_legit_motion_tracks) {
