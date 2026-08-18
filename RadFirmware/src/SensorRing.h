@@ -28,10 +28,10 @@ struct SensorTuning {
     // is adopted (flagged as a jump) so tracking can never freeze indefinitely —
     // e.g. sustained motion faster than #DPMAXRPM, or a long sticker-seam burst.
     uint8_t rejectStreakLimit = 10;
-    // Parked-hold grace: once the motor has been commanded off for longer than
-    // this, the dome is mechanically incapable of moving, so onFrame() holds the
-    // last good position and refuses phantom jumps (see noteDrive/onFrame). The
-    // window lets a just-finished move coast to rest before the hold engages.
+    // Parked-hold grace: once no move has been active for longer than this, the
+    // dome is mechanically incapable of moving, so onFrame() holds the last good
+    // position and refuses phantom jumps (see noteActive/onFrame). The window lets
+    // a just-finished move coast to rest before the hold engages.
     uint16_t coastMs = 400;
 };
 
