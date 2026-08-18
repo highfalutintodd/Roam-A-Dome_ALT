@@ -30,13 +30,45 @@ survives is the true settled position. It keeps your existing pin map,
 `getDomeAngle()` table, and serial frame — it only gates *when* a reading is
 trustworthy.
 
-## Integrate it into `DomeSensorFirmware32.ino`
+## Ready to flash: `DomeSensorFirmware32/`
+
+`SensorFirmware/DomeSensorFirmware32/` is the **upstream sketch with the edits
+already applied** — open that folder in the Arduino IDE / arduino-cli and flash it
+to the sensor ring's ESP32. It contains:
+
+- `DomeSensorFirmware32.ino` — upstream + the four RaD edits (each tagged `RaD`).
+- `PositionDebounce.h` — the debounce.
+- `LICENSE` — upstream LGPL-2.1 (retained; the `.ino` header notes the changes).
+
+Verified to build:
+
+```
+arduino-cli compile --fqbn esp32:esp32:esp32 SensorFirmware/DomeSensorFirmware32
+# Sketch uses 317699 bytes (24%) of program storage space.
+```
+
+Two things confirmed while assembling it:
+
+- **Board = plain ESP32** (`esp32:esp32:esp32`), matching upstream `.auto`. The
+  sensor pin map in ReelTwo depends on the board define, so build for the same
+  target your ring was originally flashed with (it works today, so this is right).
+- **Your ReelTwo is safe to build against.** The global ReelTwo arduino-cli uses
+  (`~/Documents/Arduino/libraries/Reeltwo`, 23.5.3) has a `DomeSensorRing.h`
+  **byte-identical to upstream** — your Uppity-project ReelTwo modifications do
+  not touch the dome-sensor decode this compiles. (If you ever build from a tree
+  whose ReelTwo *is* modified there, don't — use a clean ReelTwo for the sensor.)
+
+The rest of this section documents *what* those edits are, if you'd rather apply
+them to your own copy by hand.
+
+---
+
+## Applying the edits by hand
 
 Targets the upstream Reeltwo firmware
-([reeltwo/DomeSensorFirmware32](https://github.com/reeltwo/DomeSensorFirmware32)),
-`loop()` at lines ~273–381. That sketch reports `short angle =
-sDomePosition.getAngle();` and prints `#DP@%d` on change or every
-`POSITION_RESEND_INTERVAL` (1000 ms).
+([reeltwo/DomeSensorFirmware32](https://github.com/reeltwo/DomeSensorFirmware32)).
+That sketch reports `short angle = sDomePosition.getAngle();` and prints `#DP@%d`
+on change or every `POSITION_RESEND_INTERVAL` (1000 ms).
 
 The catch: `getAngle()` medians *after* decode. A median can't undo a
 transition-aliased or stuck raw code — it's already in the buffer and drags the
@@ -45,12 +77,8 @@ median with it. So debounce the **raw code**, which the class exposes via
 touches the pins, the `getDomeAngle()` table (matched to your Mimir sticker), the
 `#DP@` frame, the baud, or the NeoPixel/debug output.
 
-**Edit 1 — copy the header into the sketch folder** (same directory as the
-`.ino`, so the quoted `#include` resolves):
-
-```
-cp SensorFirmware/PositionDebounce.h  <path to>/DomeSensorFirmware32/
-```
+**Edit 1 — put `PositionDebounce.h` in the sketch folder** (same directory as the
+`.ino`, so the quoted `#include` resolves).
 
 **Edit 2 — add the include** after the last `#include` (line 6,
 `#include "core/StringUtils.h"`):
