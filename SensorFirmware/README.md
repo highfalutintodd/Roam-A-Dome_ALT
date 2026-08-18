@@ -30,40 +30,73 @@ survives is the true settled position. It keeps your existing pin map,
 `getDomeAngle()` table, and serial frame — it only gates *when* a reading is
 trustworthy.
 
-## Integrate it (≈6 lines)
+## Integrate it into `DomeSensorFirmware32.ino`
 
-In `DomeSensorFirmware32.ino`:
+This targets the upstream Reeltwo firmware
+([reeltwo/DomeSensorFirmware32](https://github.com/reeltwo/DomeSensorFirmware32)).
+That sketch reports with `short angle = sDomePosition.getAngle();` and then, on
+change or every `POSITION_RESEND_INTERVAL` ms, sends `snprintf(buf,…,"#DP@%d",…)`
+out `REPORT_SERIAL`.
+
+The catch: `getAngle()` medians *after* decode. A median can't undo a
+transition-aliased or stuck raw code — that value is already in the buffer and
+drags the median with it. So debounce the **raw code**, which the class exposes
+via `readSensors()` and `getDomeAngle()`.
+
+**1. At the top of the sketch, next to the other globals:**
 
 ```cpp
 #include "PositionDebounce.h"
 static PositionDebounce sDebounce;
+```
 
-void loop() {
-    unsigned code  = readSensors();        // your existing 9-bit read
-    int      angle = getDomeAngle(code);   // your existing table (-1 = invalid)
-    int      out;
-    if (sDebounce.update(code, angle, millis(), out)) {
-        // your existing frame, unchanged:
-        Serial.print("#DP@"); Serial.print(out); Serial.print("\r\n");
-    }
-    // no delay(): poll as fast as you can — see below
+**2. In `loop()`, replace the acquisition + report block.** Where the firmware does:
+
+```cpp
+short angle = sDomePosition.getAngle();
+if (angle != sLastAngle || millis() - sLastReport > POSITION_RESEND_INTERVAL) {
+    snprintf(buf, sizeof(buf), "#DP@%d", angle);
+    REPORT_SERIAL.println(buf);
+    ...
 }
 ```
 
-Two things to check:
+use the raw code, gated by the debounce (which does its own change + heartbeat
+logic, so `sLastAngle` / `sLastReport` are no longer needed):
 
-- **Poll fast.** `PositionDebounce` counts *reads*, not milliseconds. Remove any
-  `delay()` in the read loop so it runs ~1 kHz; the default `kStableReads = 4`
-  is then ~4 ms of debounce — invisible in motion, but enough to outlast any
-  edge transition. If your loop is slower, drop `kStableReads` to 2–3.
-- **Keep your heartbeat cadence.** `kHeartbeatMs = 1000` resends the last good
-  angle every second so the RaD side never marks the link `STALE` (its timeout is
-  2500 ms). Match whatever your firmware already used.
+```cpp
+unsigned code  = sDomePosition.readSensors();      // raw 9-bit pattern
+int      raw   = sDomePosition.getDomeAngle(code); // -1 if not a valid code
+int      angle;
+if (sDebounce.update(code, raw, millis(), angle)) {
+    snprintf(buf, sizeof(buf), "#DP@%d", angle);
+    REPORT_SERIAL.println(buf);                    // frame + serial unchanged
+    // Serial.print("POS: "); Serial.println(angle);   // keep your console echo if wanted
+}
+```
 
-If you'd rather I fold this directly into `DomeSensorFirmware32.ino` (and add the
-one-bit-transition check the Reeltwo library already flags in debug), **share that
-file** — I kept the change as a wrapper precisely so it can't disturb the decode
-table that matches your specific sticker.
+Nothing else changes — same pins, same `getDomeAngle()` table (matched to your
+Mimir sticker), same `REPORT_SERIAL`, same `#DP@` frame and baud.
+
+### Two things to confirm
+
+- **Poll fast.** `PositionDebounce` counts *reads*, not milliseconds. The upstream
+  `loop()` has no `delay()`, so it already free-runs at several kHz — the default
+  `kStableReads = 4` is then a millisecond or two of debounce: invisible in
+  motion, long enough to outlast any edge transition. If you ever add a loop
+  delay, drop `kStableReads` to 2–3.
+- **Heartbeat matches.** `kHeartbeatMs = 1000` equals the firmware's
+  `POSITION_RESEND_INTERVAL`, so the RaD side never trips its 2500 ms `STALE`
+  timeout.
+
+### Optional stronger check
+
+The Reeltwo `DomeSensorRing` already computes `countChangedBits(mask, lastMask)`
+and flags `> 1` as a bad state in debug. Once the debounce is in, you can also
+*reject* a newly-stable code whose bit-count jumped by more than one from the last
+good code unless it holds even longer — but in practice the stability gate alone
+removes the transition/flicker misreads seen in the logs, so start with the drop-in
+above and only add this if a residual slips through.
 
 ## Belt and suspenders
 

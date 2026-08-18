@@ -34,13 +34,17 @@
 //
 //   static PositionDebounce sDebounce;
 //   void loop() {
-//     unsigned code  = readSensors();          // your existing 9-bit read
-//     int      angle = getDomeAngle(code);     // your existing table (-1 = invalid)
+//     unsigned code = sDomePosition.readSensors();       // existing 9-bit read
+//     int      raw  = sDomePosition.getDomeAngle(code);  // existing table (-1 = invalid)
 //     int      out;
-//     if (sDebounce.update(code, angle, millis(), out)) {
-//       Serial.print("#DP@"); Serial.print(out); Serial.print("\r\n");  // your existing frame
+//     if (sDebounce.update(code, raw, millis(), out)) {
+//       snprintf(buf, sizeof(buf), "#DP@%d", out);
+//       REPORT_SERIAL.println(buf);                      // existing frame, unchanged
 //     }
 //   }
+//
+// (Debounce the RAW code, not sDomePosition.getAngle() — getAngle() medians after
+//  decode, which can't undo a stuck or transition-aliased code.)
 //
 // The RaD firmware's own SensorRing filter (median + rate gate + parked-hold) is
 // the second layer of defence; this is the first, at the point with the most
