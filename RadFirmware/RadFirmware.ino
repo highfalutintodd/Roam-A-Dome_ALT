@@ -365,6 +365,11 @@ void loop() {
         wire = static_cast<int8_t>(autoPct * dir);
     }
     driveMotor(wire, now);
+    // Tell the sensor tracker whether the dome is under power. When it is not, the
+    // dome cannot move, so the tracker holds position and rejects encoder misreads
+    // instead of chasing a phantom (see SensorRing::noteDrive). One-loop lag from
+    // feeding the sensor at the top of loop() is immaterial next to the coast window.
+    sSensor.noteDrive(wire != 0, now);
     learnPolarity(now);
 
     // --- telemetry ------------------------------------------------------------

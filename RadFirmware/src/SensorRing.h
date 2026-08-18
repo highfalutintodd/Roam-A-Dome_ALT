@@ -28,6 +28,11 @@ struct SensorTuning {
     // is adopted (flagged as a jump) so tracking can never freeze indefinitely —
     // e.g. sustained motion faster than #DPMAXRPM, or a long sticker-seam burst.
     uint8_t rejectStreakLimit = 10;
+    // Parked-hold grace: once the motor has been commanded off for longer than
+    // this, the dome is mechanically incapable of moving, so onFrame() holds the
+    // last good position and refuses phantom jumps (see noteDrive/onFrame). The
+    // window lets a just-finished move coast to rest before the hold engages.
+    uint16_t coastMs = 400;
 };
 
 class SensorRing {
@@ -38,6 +43,18 @@ class SensorRing {
     explicit SensorRing(const SensorTuning& tuning = SensorTuning{}) : fTuning(tuning) {}
 
     void setTuning(const SensorTuning& t) { fTuning = t; }
+
+    // Report whether the motor is currently commanded to move. Call once per
+    // control loop. A dome with the motor off cannot change position, so once it
+    // has been off longer than coastMs the parked-hold in onFrame() rejects any
+    // reported jump as an encoder misread rather than believing the dome moved.
+    // (Only armed after the first real drive: fLastDriveMs==0 keeps boot-time and
+    // host-test behaviour on the plain gate.)
+    void noteDrive(bool active, uint32_t nowMs) {
+        fDriveActive = active;
+        if (active)
+            fLastDriveMs = nowMs;
+    }
 
     // Feed one raw byte from the sensor serial stream; call tick() regularly too.
     void feed(uint8_t ch, uint32_t nowMs) {
@@ -177,6 +194,28 @@ class SensorRing {
         fWindowIdx = (fWindowIdx + 1) % kMedianWindow;
         int16_t med = circularMedian(fPosition);
 
+        // Parked hold. With the motor commanded off past the coast window the dome
+        // is mechanically incapable of moving, so a reported change beyond sensor
+        // dither is the encoder decoding a marginal code to a stable-but-wrong
+        // angle — not a real move. Hold the last good position and never adopt the
+        // lie (no confirm, no fail-open); tracking re-locks on the next commanded
+        // move, where genuine motion justifies the change. This is what stops a
+        // parked dome from reading a wrong angle for seconds and corrupting the
+        // start point of the following move. Armed only after the first real drive
+        // (fLastDriveMs != 0), so boot-time acquisition and host tests are
+        // unaffected.
+        if (!fDriveActive && fLastDriveMs != 0 &&
+            (nowMs - fLastDriveMs) > fTuning.coastMs) {
+            if (circularDistance(med, fPosition) <= fTuning.slackDeg) {
+                accept(med, nowMs, /*jump=*/false); // genuine dither: stay in sync
+            } else {
+                ++fStats.rejectedRate; // phantom move: count it, hold position
+            }
+            fPendingCount = 0;
+            fRejectStreak = 0;
+            return;
+        }
+
         uint32_t dt = nowMs - fLastAcceptMs;
         if (dt > 10000)
             dt = 10000;
@@ -260,6 +299,8 @@ class SensorRing {
     uint8_t fRejectStreak = 0;
     uint32_t fLastFrameMs = 0;
     uint32_t fLastAcceptMs = 0;
+    bool fDriveActive = false;    // motor commanded to move this loop (noteDrive)
+    uint32_t fLastDriveMs = 0;    // last time the motor was driving; 0 = never yet
     Stats fStats;
 };
 

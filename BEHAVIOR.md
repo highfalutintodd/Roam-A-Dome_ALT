@@ -181,6 +181,7 @@ instead of silently corrupting it.
 | D13 | Learned drive polarity persists across reboots (own NVS key, `[DIR] restored:` at boot; cleared by `#DPZERO`/`#DPFACTORY`) | it was RAM-only, so every boot restarted at "unknown" and the first automated move ran on the `#DPINVERT`-derived guess — measured travelling ~54° the wrong way on the bench before the learner corrected it |
 | D14 | Polarity is learned once, then **frozen** until an explicit `#DPDIRLEARN`; the learner never re-derives the sign at runtime | it re-learned from motion the sensor filter was already rejecting (motor-current noise), flipped the sign mid-hold, inverted the position loop into positive feedback and ran the dome away at full speed — the "flip out" |
 | D15 | A tracker jump inside the arrival arc does not restart the arrival dwell | a glitch-prone arc near the target reset arrival every tick, so the hold hunted forever instead of latching idle |
+| D16 | With the motor commanded off past a short coast window, the sensor tracker holds position and rejects any reported jump as an encoder misread (parked-hold) | a parked dome is mechanically incapable of moving, yet the absolute encoder can decode a marginal code to a stable-but-wrong angle for seconds — believing it corrupted the next move's start point (the "semi flip-out"); tracking re-locks on the next commanded move |
 
 ## 9. Display (display board only)
 

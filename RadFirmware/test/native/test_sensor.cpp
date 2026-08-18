@@ -171,6 +171,62 @@ TEST(sensor_sustained_jump_eventually_accepted_and_flagged) {
     CHECK_EQ(sr.lastDelta(), 0); // jump contributes no relative motion
 }
 
+TEST(sensor_parked_hold_rejects_phantom_jump) {
+    // Motor off past the coast window: the dome cannot move, so a stable-but-wrong
+    // encoder reading (the field "reads 299 for 4 s while parked" failure) is held
+    // off and the position stays frozen — no confirm, no fail-open adoption.
+    uint32_t now;
+    SensorRing sr = warmedUp(200, &now);
+    sr.noteDrive(true, now);         // arm: the dome has driven at least once
+    now += kDt;
+    sr.noteDrive(false, now);        // motor commanded off
+    now += 500;                      // past coastMs (400)
+    for (int i = 0; i < 8; ++i, now += kDt) {
+        sr.noteDrive(false, now);
+        frame(sr, 299, now);         // encoder lies: a wrong-but-stable code
+    }
+    CHECK(sr.valid());
+    CHECK_EQ(sr.position(), 200);    // phantom rejected; dome held where it parked
+    CHECK(!sr.consumeJump());        // and never flagged as a real move
+}
+
+TEST(sensor_parked_hold_tracks_dither) {
+    // Parked hold still follows genuine sensor dither within slack, so the held
+    // position never drifts away from truth.
+    uint32_t now;
+    SensorRing sr = warmedUp(200, &now);
+    sr.noteDrive(true, now);
+    now += kDt;
+    sr.noteDrive(false, now);
+    now += 500;
+    for (int i = 0; i < 4; ++i, now += kDt) {
+        sr.noteDrive(false, now);
+        frame(sr, 201, now);         // 1 deg: within slackDeg
+    }
+    CHECK(circularDistance(sr.position(), 201) <= 1);
+}
+
+TEST(sensor_parked_hold_reacquires_when_driven) {
+    // The hold is not a latch: once the motor drives again, real motion is
+    // tracked. (A dome hand-moved while parked re-locks on the next commanded move.)
+    uint32_t now;
+    SensorRing sr = warmedUp(200, &now);
+    sr.noteDrive(true, now);
+    now += kDt;
+    sr.noteDrive(false, now);
+    now += 500;
+    for (int i = 0; i < 4; ++i, now += kDt) { // parked: 260 rejected, held at 200
+        sr.noteDrive(false, now);
+        frame(sr, 260, now);
+    }
+    CHECK_EQ(sr.position(), 200);
+    for (int i = 0; i < 4; ++i, now += kDt) { // motor on: 260 is now believed
+        sr.noteDrive(true, now);
+        frame(sr, 260, now);
+    }
+    CHECK(circularDistance(sr.position(), 260) <= 6);
+}
+
 TEST(sensor_fast_legit_motion_tracks) {
     // 30 RPM = 180 deg/s = 3.6 deg per 20 ms frame. Feed 3 deg per frame — fast
     // but plausible; the gate must not reject it.
