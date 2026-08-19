@@ -31,10 +31,13 @@ position sensor ring to know exactly where the dome is pointing.
   waits, inclusive random ranges (`:DPWR10,20`), and a new random-millisecond wait
   (`:DPWMR`), engineered so timing stays exact no matter what else is happening on
   the serial ports or the mesh.
-- **Self-calibrating drive polarity.** Which way the motor has to turn to make the
-  position reading go up is *learned* by watching the dome move under manual control,
-  so a closed-loop move can never run away from its target because of a swapped wire —
-  and it's remembered across reboots, so the first move after power-up is right too.
+- **Self-calibrating drive polarity — learned once, then frozen.** Which way the motor
+  has to turn to make the position reading go up is *learned* by watching the dome move
+  under manual control, then **locked in and remembered across reboots**, so the first
+  move after power-up is right too. Crucially it is *not* silently re-learned while
+  running — a mid-run flip is exactly how a closed-loop dome can turn sensor noise into
+  a runaway, so re-learning happens only when you explicitly ask for it with
+  `#DPDIRLEARN`.
 - **Big-number position display.** On the display controller, dome position fills the
   screen in seven-segment digits, with an idle backlight timeout (`#DPLCDSLEEP`) so a
   parked droid isn't glowing all evening.
@@ -55,6 +58,7 @@ over the original — lives in [BEHAVIOR.md](BEHAVIOR.md).
 | Path | Contents |
 |---|---|
 | `RadFirmware/` | the v2 firmware (modular sources in `src/`, host tests in `test/native/`) |
+| `SensorFirmware/` | hardened firmware for the **dome sensor ring's** own ESP32 — flash this to the *sensor* board, not the RaD controller. See [SensorFirmware/README.md](SensorFirmware/README.md) |
 | `COMMANDS.md` | complete command reference — syntax, ranges, defaults |
 | `BEHAVIOR.md` | the observable contract the firmware is built and tested against |
 | `tools/` | `capture_config.py` — capture/replay controller settings over USB |
@@ -77,7 +81,12 @@ variants are supported, and they use different build profiles:
 You also need:
 
 - a **dome position sensor ring** feeding `#DP@<degrees>` lines at 57600 or 115200 baud
-  (`#DPSENSORBAUD`) — this is what makes any of the automation possible;
+  (`#DPSENSORBAUD`) — this is what makes any of the automation possible. This repo
+  ships a hardened build of the sensor ring's own firmware in
+  [`SensorFirmware/`](SensorFirmware/README.md); flashing it (to the *sensor* board's
+  ESP32, a separate MCU from the RaD controller) is strongly recommended — it removes
+  the transient/stuck encoder misreads that otherwise make a closed-loop dome hunt or
+  jerk. See [SensorFirmware/README.md](SensorFirmware/README.md) for why and how;
 - a **motor controller** — Syren/Sabertooth on packet serial (default) or anything
   that takes an RC/PWM signal (`#DPPWMOUT1`);
 - optionally a **WCB** mesh to talk to, if you want wireless control.
