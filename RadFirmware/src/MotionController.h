@@ -23,7 +23,16 @@ struct MotionTuning {
     uint8_t homeSpeed = 40;
     uint8_t autoSpeed = 30;
     uint8_t targetSpeed = 100; // default when a move gives no speed argument
-    uint8_t fudge = 5;         // arrival tolerance (degrees)
+    uint8_t fudge = 5;         // arrival tolerance (degrees) in a clean arc
+    // Adaptive-deadband ceiling. In a coarse-encoder arc the reported position
+    // wanders many degrees while the dome is really on target; chasing that wander
+    // pulses the motor and self-excites the flip-out. When the controller sees this
+    // (wide sample spread but no *net* progress) it widens the "close enough, stop
+    // driving" band toward this ceiling so it stops and lets the move settle. Only
+    // engages on measured noise, so clean arcs keep the tight `fudge`. Set == fudge
+    // to disable. The cost is honest: arrival precision in a noisy arc is only as
+    // good as the encoder can resolve there.
+    uint8_t fudgeMax = 22;
     uint8_t dwell = 3;         // consecutive in-arc fresh samples = arrived
     bool scaling = false;      // ramp speed up instead of stepping
     uint8_t accScale = 20;     // ramp: ~accScale*20 ms from 0 to 100%
@@ -75,6 +84,7 @@ class MotionController {
         fCurSpeed = 0;
         fProgressAt = 0;
         fProgressPos = -1;
+        fNoiseCount = 0;
     }
 
     // Degrees relative to home (":DPA90" semantics).
@@ -170,7 +180,17 @@ class MotionController {
         int16_t dist = signedCircularDelta(in.position, fTarget);
         int16_t adist = dist < 0 ? -dist : dist;
 
-        if (in.jumped && adist > tuning.fudge) {
+        // Record fresh positions and derive the adaptive arrival/deadband tolerance
+        // for this tick before anything uses it.
+        if (in.sampleCount != fLastSample) {
+            fNoiseBuf[fNoiseIdx] = in.position;
+            fNoiseIdx = (fNoiseIdx + 1) % kNoiseWindow;
+            if (fNoiseCount < kNoiseWindow)
+                ++fNoiseCount;
+        }
+        int16_t arc = arcFudge();
+
+        if (in.jumped && adist > arc) {
             // The tracker corrected itself (sticker-seam burst, over-limit motion,
             // recovery) and the corrected position is OUTSIDE the arrival arc, so
             // re-plan from it: fresh dwell + fresh watchdog window. But a jump that
@@ -186,10 +206,16 @@ class MotionController {
         // Dwell + watchdog progress advance only on fresh accepted samples.
         if (in.sampleCount != fLastSample) {
             fLastSample = in.sampleCount;
-            if (adist <= tuning.fudge)
+            if (adist <= arc) {
                 ++fDwellCount;
-            else
-                fDwellCount = 0;
+            } else if (fDwellCount > 0) {
+                // Leaky dwell: a lone out-of-arc sample costs one tick, not the
+                // whole count. The sensor guard now holds position steady while the
+                // dome is parked in the arc, but if a rare outlier still slips
+                // through it must not wipe an almost-complete arrival and restart
+                // the hunt — a few good samples still outvote the odd stray one.
+                --fDwellCount;
+            }
             if (fProgressPos < 0 || circularDistance(in.position, fProgressPos) >= 1) {
                 fProgressPos = in.position;
                 fProgressAt = in.now;
@@ -201,8 +227,9 @@ class MotionController {
             stop();
             return 0;
         }
-        if (adist <= tuning.fudge)
-            return 0; // inside the arc, waiting out the dwell
+        if (adist <= arc)
+            return 0; // inside the (adaptive) arc, waiting out the dwell —
+                      // crucially NOT driving, so the sensor guard can hold station
 
         if (fProgressAt == 0)
             fProgressAt = in.now;
@@ -254,6 +281,34 @@ class MotionController {
             seekHome(tuning.homeSpeed);
     }
 
+    // Adaptive arrival/deadband tolerance. Baseline is the tight `fudge`; it widens
+    // toward `fudgeMax` only when recent fresh samples show a wide spread WITHOUT
+    // net progress — i.e. the reported position is bouncing around one spot, the
+    // coarse-arc noise signature, not travelling. Real motion (large net progress)
+    // keeps the spread "explained" and stays tight, so clean-arc precision is
+    // untouched. Widening lets the controller stop driving inside the noisy band,
+    // which ends the motor-pulse self-excitation and lets the move settle.
+    int16_t arcFudge() const {
+        if (fNoiseCount < 4)
+            return tuning.fudge;
+        int16_t newest = fNoiseBuf[(fNoiseIdx + kNoiseWindow - 1) % kNoiseWindow];
+        int16_t oldest = fNoiseBuf[(fNoiseIdx + kNoiseWindow - fNoiseCount) % kNoiseWindow];
+        int16_t mn = 0, mx = 0; // deltas measured relative to the newest sample
+        for (uint8_t k = 0; k < fNoiseCount; ++k) {
+            int16_t d = signedCircularDelta(newest, fNoiseBuf[k]);
+            if (d < mn)
+                mn = d;
+            if (d > mx)
+                mx = d;
+        }
+        int16_t spread = mx - mn;
+        int16_t net = circularDistance(oldest, newest);
+        if (net > tuning.fudge || spread <= tuning.fudge)
+            return tuning.fudge; // travelling, or genuinely quiet: stay tight
+        int16_t widened = tuning.fudge + spread / 2;
+        return widened > tuning.fudgeMax ? tuning.fudgeMax : widened;
+    }
+
     uint8_t clampSpeed(uint8_t s) const {
         if (s < tuning.minSpeed)
             return tuning.minSpeed;
@@ -296,6 +351,10 @@ class MotionController {
     uint32_t fLastManual = 0;
     uint32_t fSchedAt = 0;
     uint32_t fLastTick = 0;
+    static constexpr uint8_t kNoiseWindow = 8;
+    int16_t fNoiseBuf[kNoiseWindow] = {}; // recent fresh positions (adaptive fudge)
+    uint8_t fNoiseIdx = 0;
+    uint8_t fNoiseCount = 0;
 };
 
 } // namespace rad

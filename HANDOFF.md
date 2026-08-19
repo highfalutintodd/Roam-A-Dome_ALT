@@ -10,6 +10,29 @@ K-ARDS / auto-dome is **fixed**. It was three stacked causes: a runtime polarity
 re-learn that inverted the control loop, a parked-hold regression I introduced,
 and a genuinely noisy absolute encoder. All three are addressed and **confirmed**.
 
+**RECURRENCE (2026-08-19) — new root cause, fix on branch `fix/dome-hunt-plausibility-guard` (awaiting field test).**
+A K-ARDS flip-out returned. Sabé log (`logs/sabe log K-ARDS flip out 8:19:26.txt`)
+decoded: `:DPA323` is home-relative, so target was **203° absolute** and the dome
+was already there. The real fault is a *control-loop noise chase*: the coarse arc
+around 200° can't be resolved to the ±5° arrival window, and the stable 304/299
+alias arrives in blocks long enough to be *confirmed as real motion* — so the
+controller believed the dome jumped to 304°, drove hard, and shoved it off target
+(~38 s hunt). The `kStableReads` debounce can't fix a *stable* alias, and doesn't
+touch the controller's noise-chasing. Two-part RaD-side fix (no sensor reflash):
+(1) **motor-plausibility guard** in `SensorRing` — reject a position jump the
+*actual commanded drive* over the elapsed time couldn't have produced, even while
+driving (a 100° jump in 60 ms is impossible), killing 304/299 permanently;
+(2) **adaptive deadband** in `MotionController` — when reported position shows wide
+spread but no net progress (noise, not travel), widen the stop-driving band toward
+`fudgeMax` so it stops chasing and settles; clean arcs keep the tight `fudge`.
+Simulated field scenario: motor effort 5962→165 (36×), never-arrives→arrives in
+~260 ms at 202°. 62/62 host tests pass incl. an end-to-end replay with teeth;
+firmware compiles. **NEXT: flash RaD, run K-ARDS, capture `#DPDEBUG1` log.** Also
+under consideration: a sensor-characterization sketch to *measure* the ring's true
+resolution/alias map instead of tuning to assumptions. Prior status below.
+
+---
+
 **CONFIRMED SOLID (2026-08-18).** Sensor was reflashed to `kStableReads=6`, then a
 full K-ARDS + auto-dome + manual session was captured
 (`logs/rad_log_8_18_26_8-17pm.txt`, 4382 telemetry samples). Analysis: `dir=1`

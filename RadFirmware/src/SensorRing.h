@@ -31,8 +31,17 @@ struct SensorTuning {
     // Parked-hold grace: once no move has been active for longer than this, the
     // dome is mechanically incapable of moving, so onFrame() holds the last good
     // position and refuses phantom jumps (see noteActive/onFrame). The window lets
-    // a just-finished move coast to rest before the hold engages.
+    // a just-finished move coast to rest before the hold engages. Also the memory
+    // window for the motor-plausibility guard: recent drive is held this long so a
+    // dome coasting after the throttle drops is not mistaken for a sensor lie.
     uint16_t coastMs = 400;
+    // Motor-plausibility floor: degrees of movement always tolerated regardless of
+    // drive (mount slop, encoder dither, brief coast). The guard rejects a reported
+    // change larger than what the *actual commanded drive* over the elapsed time
+    // could produce, plus this floor. The failure it kills: a stable-but-wrong code
+    // (~299/304) or a ±35° coarse-arc wander arriving while the motor is commanded
+    // off — physically impossible, so a sensor lie, not motion.
+    uint8_t coastDeg = 8;
 };
 
 class SensorRing {
@@ -58,10 +67,19 @@ class SensorRing {
     // latched). Staying active until the controller reaches idle lets arrival run.
     // (Only armed after the first active period: fLastActiveMs==0 keeps boot-time
     // and host-test behaviour on the plain gate.)
-    void noteActive(bool active, uint32_t nowMs) {
+    // driveMagPct is the magnitude (0..100) of the motor output the glue is
+    // commanding this loop — |wire|. Supplying it arms the motor-plausibility
+    // guard; the default sentinel leaves it disarmed so callers that don't know
+    // the drive (host tests, boot) keep the pure kinematic gate.
+    static constexpr uint8_t kDriveUnknown = 255;
+    void noteActive(bool active, uint32_t nowMs, uint8_t driveMagPct = kDriveUnknown) {
         fActive = active;
         if (active)
             fLastActiveMs = nowMs;
+        if (driveMagPct != kDriveUnknown) {
+            fDriveArmed = true;
+            fDrivePct = driveMagPct; // magnitude of motor output commanded this loop
+        }
     }
 
     // Feed one raw byte from the sensor serial stream; call tick() regularly too.
@@ -158,6 +176,23 @@ class SensorRing {
     // deg/ms * 1024 to stay in integer math: rpm * 360 / 60000 * 1024
     uint32_t maxDegPerMsQ10() const { return (static_cast<uint32_t>(fTuning.maxRpm) * 360 * 1024) / 60000; }
 
+    // Motor output magnitude (0..100) commanded this loop. The plausibility guard
+    // sizes allowed movement from it: 0 while holding station in the arrival arc,
+    // full while sweeping. Gradual coast after the throttle drops is still tracked
+    // because the cap always allows coastDeg per frame (see the cap below).
+    uint8_t driveMag() const { return fDrivePct; }
+
+    // Degrees the dome could plausibly have moved from the last accepted position
+    // while the current pending discontinuity has persisted, given the commanded
+    // drive. A confirmed/fail-open jump beyond this is a sensor lie, not motion.
+    int32_t adoptAllowance(uint32_t nowMs) const {
+        uint32_t adt = nowMs - fPendingSinceMs;
+        if (adt > 10000)
+            adt = 10000;
+        int32_t reach = static_cast<int32_t>((maxDegPerMsQ10() * adt) >> 10);
+        return reach * fDrivePct / 100 + fTuning.slackDeg + fTuning.coastDeg;
+    }
+
     void onFrame(int16_t deg, uint32_t nowMs) {
         bool wasStale = (fState == State::kStale);
         fLastFrameMs = nowMs;
@@ -228,9 +263,25 @@ class SensorRing {
         uint32_t dt = nowMs - fLastAcceptMs;
         if (dt > 10000)
             dt = 10000;
-        int32_t allowed = static_cast<int32_t>((maxDegPerMsQ10() * dt) >> 10) + fTuning.slackDeg;
+        int32_t full = static_cast<int32_t>((maxDegPerMsQ10() * dt) >> 10);
+        int32_t allowed = full + fTuning.slackDeg;
         if (allowed > 180)
             allowed = 180;
+        // Motor-plausibility cap. When the guard is armed, a reported change can't
+        // exceed what the *actual commanded drive* over dt could produce, plus a
+        // fixed coastDeg floor for inertia/dither. While the controller holds
+        // station in the arrival arc it commands 0%, so the cap collapses to
+        // ~coastDeg — the ~299/304 alias and the ±35° coarse-arc wander (both
+        // physically impossible with the motor off) are rejected before they ever
+        // reach the controller, so it never gets kicked out of the arc and never
+        // re-pulses the motor (the self-exciting hunt). At full drive the cap
+        // exceeds the kinematic `allowed`, so fast and over-limit moves are
+        // unchanged. Gradual coast is still tracked: it stays under coastDeg/frame.
+        if (fDriveArmed) {
+            int32_t plaus = (full * driveMag()) / 100 + fTuning.slackDeg + fTuning.coastDeg;
+            if (allowed > plaus)
+                allowed = plaus;
+        }
 
         int16_t dist = circularDistance(med, fPosition);
         if (dist <= allowed) {
@@ -243,17 +294,30 @@ class SensorRing {
             ++fStats.rejectedRate;
             ++fRejectStreak;
             if (fPendingCount > 0 && circularDistance(med, fPendingValue) <= fTuning.jitterDeg) {
-                if (++fPendingCount >= fTuning.confirmSamples) {
-                    accept(med, nowMs, /*jump=*/true);
-                    fPendingCount = 0;
-                    fRejectStreak = 0;
-                    return;
-                }
+                ++fPendingCount;
             } else {
                 fPendingValue = med;
                 fPendingCount = 1;
+                fPendingSinceMs = nowMs;
             }
-            if (fRejectStreak >= fTuning.rejectStreakLimit) {
+            // Adopting a discontinuity (confirmed or fail-open) means "the dome
+            // really moved there." Only believe it if the *actual commanded drive*
+            // over the time this reading has persisted could have carried the dome
+            // that far — otherwise it is a stable sensor lie (the ~299/304 alias or
+            // a stuck coarse code), which the motor cannot have produced no matter
+            // how many times it repeats. This is what lets the guard reject the lie
+            // even while the controller is driving (the alias's 100° jump is
+            // impossible at any sane speed in 60 ms), so the dome is never yanked
+            // off target. Real and over-limit motion stay plausible as time passes,
+            // so genuine discontinuities are still adopted and never freeze.
+            bool plausibleAdopt = !fDriveArmed || dist <= adoptAllowance(nowMs);
+            if (fPendingCount >= fTuning.confirmSamples && plausibleAdopt) {
+                accept(med, nowMs, /*jump=*/true);
+                fPendingCount = 0;
+                fRejectStreak = 0;
+                return;
+            }
+            if (fRejectStreak >= fTuning.rejectStreakLimit && plausibleAdopt) {
                 // Fail-open: adopt reality rather than freeze (see tuning note).
                 accept(med, nowMs, /*jump=*/true);
                 fPendingCount = 0;
@@ -305,11 +369,14 @@ class SensorRing {
     bool fJumped = false;
     int16_t fPendingValue = 0;
     uint8_t fPendingCount = 0;
+    uint32_t fPendingSinceMs = 0;  // when the current pending discontinuity began
     uint8_t fRejectStreak = 0;
     uint32_t fLastFrameMs = 0;
     uint32_t fLastAcceptMs = 0;
     bool fActive = false;         // a move/manual drive is active this loop (noteActive)
     uint32_t fLastActiveMs = 0;   // last time control was active; 0 = never yet
+    bool fDriveArmed = false;     // glue has supplied real drive magnitudes
+    uint8_t fDrivePct = 0;        // |wire| commanded this loop, 0..100
     Stats fStats;
 };
 

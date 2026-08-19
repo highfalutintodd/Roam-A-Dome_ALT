@@ -325,6 +325,98 @@ TEST(sensor_goes_stale_then_recovers_with_jump_flag) {
     CHECK(sr.consumeJump());
 }
 
+// ------------------------------------------------------ motor-plausibility guard
+
+// Feed a frame while telling the tracker the move is active and how hard the
+// motor is actually being driven (0..100). This is what the firmware glue does
+// each loop: noteActive(active, now, |wire|).
+void frameDriven(SensorRing& sr, int deg, uint32_t now, uint8_t driveMag) {
+    sr.noteActive(true, now, driveMag);
+    frame(sr, deg, now);
+}
+
+TEST(sensor_undriven_active_holds_against_alias) {
+    // The 2026-08-19 field flip-out: a target move settling at ~203 (dome already
+    // there, so the controller commands 0% — in-arc). The encoder spits the stable
+    // 304 alias. With the motor commanded off the dome CANNOT have moved 100°, so
+    // the guard must hold position and never feed the lie to the controller (which
+    // would kick it out of the arrival arc and restart the motor-pulse hunt).
+    uint32_t now;
+    SensorRing sr = warmedUp(203, &now);
+    sr.noteActive(true, now, 40); // a moment of real drive to arm the guard
+    now += kDt;
+    for (int i = 0; i < 12; ++i, now += kDt) {
+        int deg = (i % 4 == 2) ? 304 : 203; // periodic stable-alias spikes
+        frameDriven(sr, deg, now, /*driveMag=*/0); // controller holding: 0% drive
+    }
+    CHECK(sr.valid());
+    CHECK_EQ(sr.position(), 203);      // alias never adopted
+    CHECK(!sr.consumeJump());          // and never flagged as a real move
+}
+
+TEST(sensor_undriven_active_holds_against_wander) {
+    // Same arc also wanders ±35° between valid-but-coarse codes (167..239), not
+    // just the alias. The sensor-side debounce means each wrong code arrives as a
+    // short block (not frame-to-frame flicker), the way the ring actually delivers
+    // it. Undriven, none of it is physically possible, so the reported position
+    // stays put and the controller sees a clean, settleable signal.
+    uint32_t now;
+    SensorRing sr = warmedUp(205, &now);
+    sr.noteActive(true, now, 40);
+    now += kDt;
+    int blocks[] = {239, 168, 218, 190, 175, 223}; // each a wrong-but-settled code
+    for (int b : blocks)
+        for (int i = 0; i < 4; ++i, now += kDt)
+            frameDriven(sr, b, now, /*driveMag=*/0);
+    CHECK(circularDistance(sr.position(), 205) <= 3); // held where it settled
+    CHECK(!sr.consumeJump());                         // never mistaken for a move
+}
+
+TEST(sensor_driven_still_tracks_real_motion) {
+    // The guard must only reject what the drive can't explain. While actually
+    // driving at full output the dome really is sweeping, so motion must track and
+    // over-limit bursts must still recover — the guard opens up with the throttle.
+    uint32_t now;
+    SensorRing sr = warmedUp(0, &now);
+    (void)sr.consumeJump();
+    int deg = 0;
+    for (int i = 0; i < 60; ++i, now += kDt) {
+        deg = normalizeDeg(deg + 3); // 150 deg/s: real full-speed motion
+        frameDriven(sr, deg, now, /*driveMag=*/100);
+    }
+    CHECK(circularDistance(sr.position(), deg) <= 6); // kept up, not frozen
+}
+
+TEST(sensor_driven_guard_reacquires_after_undriven_hold) {
+    // Undriven hold is not a latch: once the motor drives again the dome can move,
+    // so a genuine new position is believed. (Mirrors parked-hold reacquire, but
+    // via the drive signal during an active move rather than the idle timeout.)
+    uint32_t now;
+    SensorRing sr = warmedUp(200, &now);
+    sr.noteActive(true, now, 30);
+    now += kDt;
+    for (int i = 0; i < 5; ++i, now += kDt)      // undriven: 260 rejected, held
+        frameDriven(sr, 260, now, 0);
+    CHECK_EQ(sr.position(), 200);
+    // Driving again, the dome really can move: a 60° reacquisition at 60% output
+    // takes ~280 ms of drive to become physically plausible, so give it that time.
+    for (int i = 0; i < 20; ++i, now += kDt)
+        frameDriven(sr, 260, now, 60);
+    CHECK(circularDistance(sr.position(), 260) <= 6);
+}
+
+TEST(sensor_undriven_hold_still_follows_true_dither) {
+    // Holding must not go blind: genuine sub-slack dither at the settled position
+    // is still tracked, so the held value never drifts from truth.
+    uint32_t now;
+    SensorRing sr = warmedUp(203, &now);
+    sr.noteActive(true, now, 40);
+    now += kDt;
+    for (int i = 0; i < 8; ++i, now += kDt)
+        frameDriven(sr, (i % 2) ? 204 : 202, now, 0); // 1 deg dither, within slack
+    CHECK(circularDistance(sr.position(), 203) <= 2);
+}
+
 TEST(sensor_relative_deltas_accumulate_only_validated_motion) {
     uint32_t now;
     SensorRing sr = warmedUp(100, &now);

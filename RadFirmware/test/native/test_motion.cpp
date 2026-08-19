@@ -1,6 +1,7 @@
 #include "rad_test.h"
 
 #include "../../src/MotionController.h"
+#include "../../src/SensorRing.h"
 
 using namespace rad;
 
@@ -8,6 +9,14 @@ namespace {
 
 uint32_t midRng2(uint32_t lo, uint32_t hi) {
     return (lo + hi) / 2;
+}
+
+void feedFrame(SensorRing& sr, int deg, uint32_t now) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "#DP@%d\r\n", deg);
+    for (const char* p = buf; *p; ++p)
+        sr.feed(static_cast<uint8_t>(*p), now);
+    sr.tick(now);
 }
 
 MotionController::Inputs in(uint32_t now, int16_t pos, uint32_t samples,
@@ -186,6 +195,83 @@ TEST(motion_estop_input_forces_neutral) {
     i.estop = true;
     CHECK_EQ(mc.tick(i), 0);
     CHECK(mc.state() == MotionController::State::kIdle);
+}
+
+TEST(motion_kards_settles_in_noisy_arc_without_hunting) {
+    // End-to-end regression for the 2026-08-19 K-ARDS flip-out. SensorRing and
+    // MotionController wired exactly as the firmware loop wires them. The dome sits
+    // at ~205° and is commanded to absolute 203° (`:DPA323` + home 240) — it barely
+    // needs to move. The encoder in this arc periodically lies: the stable 304 alias
+    // and coarse ±35° wander. Before the plausibility guard this restarted the
+    // arrival dwell every time and pulsed the motor for ~38 s (the flip-out). Now
+    // the guard holds those lies off while the motor is idle, so the move settles
+    // quickly and the motor is barely driven at all.
+    SensorRing sr;
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 240;
+
+    uint32_t now = 1000;
+    for (int i = 0; i < SensorRing::kMedianWindow; ++i, now += 20) // parked at 210
+        feedFrame(sr, 210, now);
+    CHECK(sr.valid());
+
+    mc.moveHomeRelative(323, 50, 0, true); // -> absolute 203
+    CHECK_EQ(mc.target(), 203);
+
+    // Start just OUTSIDE the arrival arc (210 vs 203): the controller must nudge, so
+    // it commands drive — which is exactly the case the guard-alone can't fix (drive
+    // disarms the per-frame hold). Only the adaptive deadband stopping the chase +
+    // the plausibility-gated guard rejecting the alias together settle it. Without
+    // the fix this ran the motor hard and never arrived (measured effort ~5962);
+    // with it, a dozen small nudges (~165).
+    double truePos = 210.0;      // real dome angle; ~0.0496 deg per % per 20 ms tick
+    long driveEffort = 0;        // sum of |commanded speed| over the run
+    bool everArrived = false;
+    for (int i = 0; i < 150 && !everArrived; ++i, now += 20) { // up to 3 s
+        MotionController::Inputs in;
+        in.now = now;
+        in.sensorValid = sr.valid();
+        in.position = sr.position();
+        in.sampleCount = sr.stats().accepted;
+        in.jumped = sr.consumeJump();
+        int8_t out = mc.tick(in);
+        driveEffort += out < 0 ? -out : out;
+
+        // Physics: the motor actually moves the dome (dir=1, no invert here).
+        truePos += out * 0.0496;
+        while (truePos >= 360.0)
+            truePos -= 360.0;
+        while (truePos < 0.0)
+            truePos += 360.0;
+
+        // Sensor: mostly truth, but this arc injects the field lies as multi-frame
+        // BLOCKS (a stable-but-wrong code the ring sits on), not single spikes — the
+        // median absorbs lone spikes on its own; blocks are what survived to reset
+        // the arrival dwell and drive the flip-out. A block long enough to pass the
+        // median (>=3 frames) lands every ~14 frames.
+        int reported = (int)(truePos + 0.5);
+        int phase = i % 20;
+        if (phase < 6)
+            reported = 304;                        // stable-alias block
+        else if (phase >= 9 && phase < 15)
+            reported = (i % 40 < 20) ? 239 : 168;  // coarse-wander block
+
+        uint8_t driveMag = out < 0 ? -out : out;
+        sr.noteActive(mc.state() != MotionController::State::kIdle, now, driveMag);
+        feedFrame(sr, reported, now);
+
+        if (mc.arrived())
+            everArrived = true;
+    }
+
+    CHECK(everArrived);                                   // it settled...
+    CHECK(mc.state() == MotionController::State::kIdle);
+    CHECK(mc.fault() == MotionController::Fault::kNone);  // ...cleanly, not via watchdog
+    // Lands within the arc the coarse encoder can actually resolve here.
+    CHECK(circularDistance((int)(truePos + 0.5), 203) <= mc.tuning.fudgeMax);
+    // The whole point: the motor was barely used. The old flip-out ran it hard for
+    // ~38 s (effort ~5962 in this model); a clean settle is a handful of nudges.
+    CHECK(driveEffort < 1200);
 }
 
 TEST(motion_spin_runs_without_sensor) {

@@ -373,7 +373,14 @@ void loop() {
     // SensorRing::noteActive). Gating on wire==0 instead would freeze a settling
     // move at a value a flickering encoder never re-reports, hanging arrival.
     bool controlActive = manualActive || sMotion.state() != MotionController::State::kIdle;
-    sSensor.noteActive(controlActive, now);
+    // Also hand the tracker how hard we are actually driving (|wire|, 0..100). That
+    // arms its motor-plausibility guard: a reported position change the commanded
+    // drive could not physically have produced is a sensor lie, not motion. In
+    // particular a move holding station in its arrival arc commands 0%, so the
+    // ~299/304 alias and the coarse-arc ±35° wander are rejected before they can
+    // kick the controller back out of the arc and restart the motor-pulse hunt.
+    uint8_t driveMag = static_cast<uint8_t>(wire < 0 ? -wire : wire);
+    sSensor.noteActive(controlActive, now, driveMag);
     learnPolarity(now);
 
     // --- telemetry ------------------------------------------------------------
