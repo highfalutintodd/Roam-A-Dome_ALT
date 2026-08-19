@@ -8,10 +8,17 @@
 The dome "flipping out" (violent oscillation, hangs, stuck orange square) during
 K-ARDS / auto-dome is **fixed**. It was three stacked causes: a runtime polarity
 re-learn that inverted the control loop, a parked-hold regression I introduced,
-and a genuinely noisy absolute encoder. All three are addressed. Latest mounted
-test was **"mostly smooth"** — clean single-sweep moves + steady holds — with one
-tiny residual (rare ~299/304 sensor blip) whose fix is **staged and awaiting a
-sensor reflash + one confirming log.**
+and a genuinely noisy absolute encoder. All three are addressed and **confirmed**.
+
+**CONFIRMED SOLID (2026-08-18).** Sensor was reflashed to `kStableReads=6`, then a
+full K-ARDS + auto-dome + manual session was captured
+(`logs/rad_log_8_18_26_8-17pm.txt`, 4382 telemetry samples). Analysis: `dir=1`
+throughout with **zero polarity sign-flips across all 38 auto-drive episodes**
+(each ramps monotonically into target); **all 39 target moves completed to idle**,
+none hung; **zero ~299/304 aliases, zero phantom park-jumps**, longest clean-park
+stretch 1031 samples at 1° spread; `sensor=OK` / `fault=NONE` on every sample. The
+trailing `estop=1` is a clean operator E-stop at session end. Open loop CLOSED.
+Merged to `main`.
 
 ## The system (two boards, two firmwares)
 
@@ -70,28 +77,21 @@ firmware, per the owner.
 ## Current state / what's flashed
 
 - **RaD:** flashed with everything through `ed831c9`. Working well.
-- **Sensor:** flashed with the debounce (was `kStableReads=4`).
-- **PENDING:** commit `966a70a` raised **`kStableReads 4 → 6`** to reject the rare
-  ~299/304 alias that was slipping through at 4. **This needs a sensor reflash and
-  one confirming log** — that's the only open loop.
+- **Sensor:** flashed with the debounce at **`kStableReads=6`** (commit `966a70a`).
+- **DONE:** the `kStableReads=6` reflash was completed and confirmed clean by the
+  2026-08-18 run above. No open loop remains.
 
-## THE OPEN ITEM (do this next)
+## THE OPEN ITEM — CLOSED (2026-08-18)
 
-1. Reflash the **sensor** board with `kStableReads=6`:
-   ```bash
-   arduino-cli board list   # find the sensor's port (usbserial/SLAB/wchusbserial, NOT usbmodem)
-   cd "<repo>/" && arduino-cli compile --fqbn esp32:esp32:esp32 --upload \
-     --port /dev/cu.usbserial-XXXX SensorFirmware/DomeSensorFirmware32
-   ```
-   Do NOT factory-reset the sensor after (would revert its baud and drop the link).
-2. Run **K-ARDS** and **auto-dome**, capture a `#DPDEBUG1` log (turn on with the
-   debug toggle; logs land wherever the owner captures serial). Look for:
-   - No `~299/304` one-frame blips, no `auto=-30` wrong-direction kicks mid-sweep.
-   - `jmp` climbing even slower than before; `pos` steady at rest; `rej` near-flat.
-3. **If a stray blip still gets through:** either bump `kStableReads` to **8**
-   (same one-line change, `SensorFirmware/DomeSensorFirmware32/PositionDebounce.h`)
-   and reflash the sensor — OR implement **Option B** below (owner may prefer this
-   to avoid touching the sensor board again).
+The sensor was reflashed to `kStableReads=6` and the confirming
+`logs/rad_log_8_18_26_8-17pm.txt` run came back clean (no `~299/304` blips, no
+wrong-direction `auto` kicks, `rej`/`jmp` flat at rest — ended 197/41 over the
+whole session, all increments during motion). Nothing further to do.
+
+If a residual alias ever reappears in a future run: bump `kStableReads` to **8**
+(one-line change, `SensorFirmware/DomeSensorFirmware32/PositionDebounce.h`) and
+reflash the sensor — OR implement **Option B** below to avoid touching the sensor
+board again.
 
 ### Option B (not yet built) — RaD-side motor-plausibility guard
 
@@ -146,8 +146,8 @@ Covers `SensorRing` (incl. parked-hold: reject-phantom, track-dither, reacquire,
 
 ## Gotchas
 
-- **Branch not merged / not pushed.** After the owner confirms the sensor reflash,
-  merge `fix/dome-polarity-flipout` → `main` and push if desired.
+- **Branch merged to `main` and pushed (2026-08-18)** after the confirming run.
+  `fix/dome-polarity-flipout` fast-forwarded into `main`.
 - **iCloud "conflict copy" duplicates** (`Foo 2.cpp`) previously broke the
   `arduino-cli` link with multiple-definition errors. 45 were removed and
   `.gitignore` now ignores `* [0-9].*` / `* [0-9]/`. If the build ever fails with
