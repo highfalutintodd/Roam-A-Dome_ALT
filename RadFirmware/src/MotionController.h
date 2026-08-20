@@ -24,15 +24,16 @@ struct MotionTuning {
     uint8_t autoSpeed = 30;
     uint8_t targetSpeed = 100; // default when a move gives no speed argument
     uint8_t fudge = 5;         // arrival tolerance (degrees) in a clean arc
-    // Adaptive-deadband ceiling. In a coarse-encoder arc the reported position
-    // wanders many degrees while the dome is really on target; chasing that wander
-    // pulses the motor and self-excites the flip-out. When the controller sees this
-    // (wide sample spread but no *net* progress) it widens the "close enough, stop
-    // driving" band toward this ceiling so it stops and lets the move settle. Only
-    // engages on measured noise, so clean arcs keep the tight `fudge`. Set == fudge
-    // to disable. The cost is honest: arrival precision in a noisy arc is only as
-    // good as the encoder can resolve there.
-    uint8_t fudgeMax = 22;
+    // Adaptive-deadband ceiling. When a min-speed correction overshoots the tight
+    // ±fudge arc, the dome swings back and forth around the target and never lands
+    // (the overshoot limit cycle / "flip out"). On detecting that (recent samples
+    // straddling the target — see updateArc) the controller widens its "close
+    // enough, stop driving" band toward this ceiling so it stops inside the swing.
+    // Only engages once an overshoot is seen, so a clean landing keeps the tight
+    // `fudge`. Set == fudge to disable. The cost is honest and fine for a show dome:
+    // the move "arrives" within this many degrees rather than hunting — close enough
+    // beats flipping out.
+    uint8_t fudgeMax = 30;
     uint8_t dwell = 3;         // consecutive in-arc fresh samples = arrived
     bool scaling = false;      // ramp speed up instead of stepping
     uint8_t accScale = 20;     // ramp: ~accScale*20 ms from 0 to 100%
@@ -85,6 +86,7 @@ class MotionController {
         fProgressAt = 0;
         fProgressPos = -1;
         fNoiseCount = 0;
+        fArcWide = tuning.fudge; // reset adaptive deadband for the new move
     }
 
     // Degrees relative to home (":DPA90" semantics).
@@ -187,8 +189,9 @@ class MotionController {
             fNoiseIdx = (fNoiseIdx + 1) % kNoiseWindow;
             if (fNoiseCount < kNoiseWindow)
                 ++fNoiseCount;
+            updateArc();
         }
-        int16_t arc = arcFudge();
+        int16_t arc = fArcWide;
 
         if (in.jumped && adist > arc) {
             // The tracker corrected itself (sticker-seam burst, over-limit motion,
@@ -281,32 +284,38 @@ class MotionController {
             seekHome(tuning.homeSpeed);
     }
 
-    // Adaptive arrival/deadband tolerance. Baseline is the tight `fudge`; it widens
-    // toward `fudgeMax` only when recent fresh samples show a wide spread WITHOUT
-    // net progress — i.e. the reported position is bouncing around one spot, the
-    // coarse-arc noise signature, not travelling. Real motion (large net progress)
-    // keeps the spread "explained" and stays tight, so clean-arc precision is
-    // untouched. Widening lets the controller stop driving inside the noisy band,
-    // which ends the motor-pulse self-excitation and lets the move settle.
-    int16_t arcFudge() const {
+    // Adaptive arrival/deadband tolerance, updated once per fresh sample. Baseline
+    // is the tight `fudge`. It widens toward `fudgeMax` the moment the recent
+    // samples STRADDLE the target — some past it, some short of it — by more than
+    // the tight window. That is the unmistakable signature of an overshoot limit
+    // cycle: each min-speed correction shoots through the ±fudge arc, so the dome
+    // swings back and forth and never lands (the 2026-08-19 "flip out": tgt 203,
+    // pos oscillating 190↔214, wire pulsing ±15 for seconds). Widening the arc to
+    // enclose the swing makes the controller stop driving inside it, killing the
+    // oscillation and letting the dwell complete. It LATCHES (grow-only) for the
+    // rest of the move: once the swing dies the samples no longer straddle, and
+    // without the latch the arc would snap back tight and immediately re-provoke
+    // the hunt. A move that approaches from one side and lands without overshooting
+    // never straddles, so a clean arc keeps full precision. Reset each move.
+    void updateArc() {
         if (fNoiseCount < 4)
-            return tuning.fudge;
-        int16_t newest = fNoiseBuf[(fNoiseIdx + kNoiseWindow - 1) % kNoiseWindow];
-        int16_t oldest = fNoiseBuf[(fNoiseIdx + kNoiseWindow - fNoiseCount) % kNoiseWindow];
-        int16_t mn = 0, mx = 0; // deltas measured relative to the newest sample
+            return;
+        int16_t below = 0, above = 0; // extent of samples short of / past the target
         for (uint8_t k = 0; k < fNoiseCount; ++k) {
-            int16_t d = signedCircularDelta(newest, fNoiseBuf[k]);
-            if (d < mn)
-                mn = d;
-            if (d > mx)
-                mx = d;
+            int16_t d = signedCircularDelta(fTarget, fNoiseBuf[k]); // pos - target
+            if (d < below)
+                below = d;
+            if (d > above)
+                above = d;
         }
-        int16_t spread = mx - mn;
-        int16_t net = circularDistance(oldest, newest);
-        if (net > tuning.fudge || spread <= tuning.fudge)
-            return tuning.fudge; // travelling, or genuinely quiet: stay tight
-        int16_t widened = tuning.fudge + spread / 2;
-        return widened > tuning.fudgeMax ? tuning.fudgeMax : widened;
+        int16_t spread = above - below;
+        if (below < 0 && above > 0 && spread > tuning.fudge) {
+            int16_t w = tuning.fudge + spread;
+            if (w > tuning.fudgeMax)
+                w = tuning.fudgeMax;
+            if (w > fArcWide)
+                fArcWide = w; // latch: grow only
+        }
     }
 
     uint8_t clampSpeed(uint8_t s) const {
@@ -355,6 +364,7 @@ class MotionController {
     int16_t fNoiseBuf[kNoiseWindow] = {}; // recent fresh positions (adaptive fudge)
     uint8_t fNoiseIdx = 0;
     uint8_t fNoiseCount = 0;
+    int16_t fArcWide = 5;                 // latched adaptive arc, >= tuning.fudge
 };
 
 } // namespace rad

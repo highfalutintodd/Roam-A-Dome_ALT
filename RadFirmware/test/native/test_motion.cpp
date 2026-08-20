@@ -274,6 +274,44 @@ TEST(motion_kards_settles_in_noisy_arc_without_hunting) {
     CHECK(driveEffort < 1200);
 }
 
+TEST(motion_overshoot_limit_cycle_stops_driving) {
+    // Regression for the 2026-08-19 field flip-out, replayed from the ACTUAL RaD DBG
+    // capture. Target 203; the dome swept up cleanly then overshot the tight ±5° arc
+    // on each min-speed correction and swung 190↔214 with wire pulsing ±15 for
+    // seconds — a pure motor overshoot limit cycle (all readings real, no aliasing).
+    // The controller must recognise the swing (samples straddling the target) and
+    // STOP driving, instead of pumping the oscillation forever.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 240;
+    mc.moveToAbsolute(203, 50, 0, true);
+
+    // The position stream exactly as logged (st=target rows).
+    int seq[] = {56, 81, 121, 155, 190, 194, 210, 210, 191, 194, 213, 211,
+                 193, 190, 213, 214, 211, 190, 191, 211, 211, 211};
+    uint32_t now = 1000, samples = 0;
+    int8_t out = 0;
+    int drivenAfterStraddle = 0;
+    bool sawAbove = false, sawBelow = false, straddled = false;
+    for (int p : seq) {
+        now += 250;
+        out = mc.tick(in(now, (int16_t)p, ++samples));
+        if (p > 203) sawAbove = true;
+        if (p < 203) sawBelow = true;
+        // Once the dome has been seen both past and short of target, every further
+        // min-speed pulse is the controller feeding the oscillation.
+        if (straddled && out != 0) ++drivenAfterStraddle;
+        if (sawAbove && sawBelow) straddled = true;
+    }
+    // After it has clearly straddled the target, the controller must have quit
+    // driving (deadband widened to enclose the swing). Pre-fix it kept pulsing ±15
+    // the whole time — drivenAfterStraddle would be large.
+    CHECK(straddled);
+    CHECK(drivenAfterStraddle <= 3);
+    CHECK_EQ(out, 0);                                 // ends parked, motor off
+    CHECK(mc.arrived());
+    CHECK(mc.state() == MotionController::State::kIdle);
+}
+
 TEST(motion_spin_runs_without_sensor) {
     // Continuous spin is operator-commanded and does not require the sensor
     // (legacy behavior); staleness only gates position-based automation.
