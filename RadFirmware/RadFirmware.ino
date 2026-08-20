@@ -409,6 +409,21 @@ void loop() {
         }
     }
 
+    // One-shot diagnostic when manual input engages: phantom "manual" (a
+    // floating PWM pin picking up motor noise) has cancelled sequences and
+    // silently killed moves before — make the culprit and its decoded value
+    // visible in any bench log. Rate-limited so a noise storm can't spam.
+    {
+        static bool sManWas = false;
+        static uint32_t sManLogAt = 0;
+        if (manualActive && !sManWas && now - sManLogAt > 2000) {
+            sManLogAt = now;
+            Serial.printf("[MAN] manual input engaged: %d%% (%s)\n", manualPct,
+                          sPwm.manualPercent(now) != 0 ? "PWM" : "Syren serial");
+        }
+        sManWas = manualActive;
+    }
+
     // #DPAUTORESTART0: manual input DISARMS the self-running modes outright
     // (until re-enabled) instead of merely pausing them for #DPIDLE.
     {

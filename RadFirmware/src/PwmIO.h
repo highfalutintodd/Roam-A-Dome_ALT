@@ -25,11 +25,21 @@ class PwmIO {
         }
     }
 
-    // Latest captured pulse width, 0 if none seen for staleWindowMs.
+    // A real RC receiver repeats frames at ~50 Hz; require this many
+    // consecutive pulses at that cadence before believing the input. A lone
+    // plausible-width pulse (floating pin + motor noise) must never read as
+    // stick input — it was cancelling sequences as phantom "manual override".
+    static constexpr uint8_t kMinPulseStreak = 3;
+    static constexpr uint32_t kMaxFrameGapMs = 40; // 50 Hz frames + margin
+
+    // Latest captured pulse width; 0 if none seen for staleWindowMs or the
+    // pulse train is too short to be a genuine transmitter.
     uint16_t pulseUs(uint32_t now, uint32_t staleWindowMs = 100) const {
         uint32_t last = fLastEdgeMs;
         if (last == 0 || (now - last) > staleWindowMs)
             return 0;
+        if (fStreak < kMinPulseStreak)
+            return 0; // lone blip, not a pulse train: fail neutral
         return fPulseUs;
     }
 
@@ -85,6 +95,8 @@ class PwmIO {
     volatile uint32_t fRiseUs = 0;
     volatile uint16_t fPulseUs = 0;
     volatile uint32_t fLastEdgeMs = 0;
+    volatile uint32_t fPrevPulseMs = 0; // previous valid pulse (train spacing)
+    volatile uint8_t fStreak = 0;       // consecutive pulses at RC cadence
 };
 
 } // namespace rad

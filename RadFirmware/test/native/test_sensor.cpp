@@ -486,3 +486,26 @@ TEST(sensor_earned_coast_tracks_jog_tail) {
         frameDriven(sr, 128, now, /*driveMag=*/0);
     CHECK(circularDistance(sr.position(), 128) <= 6); // tail tracked, not held out
 }
+
+TEST(sensor_alias_anchor_cannot_freeze_driven_tracking) {
+    // Bench log 2026-08-20 (tgt=274): warm-up (or a parked spell in the
+    // 195-210 trap arc) anchored the tracker on the stable ~299 alias. While
+    // the dome DROVE, the ring emitted the real sweep — every real code was
+    // rejected as implausibly far from 299 — interleaved with alias resends
+    // that re-anchored 299 and reset the fail-open streak. Result: tracking
+    // pinned for seconds while the controller drove blind. The fail-open must
+    // adopt the rejected reality: stationary re-accepts no longer reset the
+    // streak, and its plausibility window spans the whole streak.
+    uint32_t now;
+    SensorRing sr = warmedUp(299, &now); // anchored on the alias
+    (void)sr.consumeJump();
+    int real = 210; // true position, sweeping away under -30% drive
+    bool adopted = false;
+    for (int i = 0; i < 120 && !adopted; ++i, now += kDt) {
+        int deg = (i % 4 == 3) ? 299 : (real = normalizeDeg(real - 2));
+        frameDriven(sr, deg, now, /*driveMag=*/30);
+        adopted = circularDistance(sr.position(), 299) > 20;
+    }
+    CHECK(adopted); // reality wins in bounded time (was: frozen indefinitely)
+    CHECK(circularDistance(sr.position(), real) <= 25);
+}

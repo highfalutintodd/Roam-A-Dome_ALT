@@ -280,3 +280,47 @@ raise `kStableReads` past 6 chasing aliases; the sensor layer owns
 transition/flicker rejection at its latency-optimal setting, and RaD owns
 stable lies. (The old "go to 8 if a stray one gets by" escalation is retired;
 see PositionDebounce.h.)
+
+---
+
+## 2026-08-20 (evening) — first bench run findings: two live bugs, both fixed
+
+Bench log (auto-dome on, dome remote OFF) showed two distinct failures:
+
+**1. Phantom manual input cancelled sequences / silently killed moves.**
+"SEQUENCE CANCELLED (manual override)" fired with no transmitter powered, and
+several direct moves stopped short with no fault (first move of the session:
+tgt 216, silently stopped at ~231). Every event coincided with full-speed
+motor activity: the PWM input pin (#DPPWMIN1, no receiver powered) floats and
+picks up motor noise, and ONE plausible-width pulse was believed and held for
+the whole 100 ms staleness window → `manualActive` → rung 2 cancels.
+**Fix:** PwmIO now requires a pulse TRAIN — ≥3 consecutive plausible pulses at
+RC cadence (≤40 ms apart) — before the input reads as stick; lone blips are
+neutral. The glue also prints a rate-limited `[MAN] manual input engaged: N%
+(PWM|Syren serial)` on the rising edge so any future cancel names its culprit.
+(Config-level escape hatch if no PWM source is ever connected: `#DPPWMIN0`.)
+
+**2. The boot flip-out: alias-anchored blind driving.** The user saw the dome
+flip out before the monitor came up (auto-dome enabled); the monitor reset
+gave a clean boot, but the same mechanism replayed mid-log at tgt=274: the
+tracker sat pinned on the stable ~299 alias while driving −15 for ~3 s
+(rej +106) and the dome physically rotated far off blind. Root cause: the
+alias re-anchors the tracker every few frames (a stationary re-accept of 299
+reset the fail-open streak), so "adopt reality after N rejects" never fired —
+reality was rejected between alias resends indefinitely. The dome parks in
+the 195–210 trap arc after shows, so warm-up can seed the alias at power-on
+and the first auto move drives off a ~100°-wrong anchor: the flip-out.
+**Fix (SensorRing):** stationary re-accepts no longer reset the fail-open
+streak (it now counts rejects since the position last TRULY moved), and the
+fail-open's plausibility window spans the whole streak instead of the
+constantly-resetting pending window. Driven blind-tracking is now bounded to
+roughly the time the commanded drive needs to plausibly cover the discrepancy
+(~1 s at 30%), with the no-progress watchdog (5 s → TIMEOUT) as backstop.
+The undriven defenses are unchanged: alias/wander still held out at 0% drive
+(all prior guard tests green; new regression:
+`sensor_alias_anchor_cannot_freeze_driven_tracking`).
+
+**Next bench run, watch for:** `[MAN]` lines (should only appear when a real
+transmitter is on), no more silent move kills, and any alias episode
+recovering in ~1 s with a `jmp` increment instead of a multi-second blind
+drive. 85 host tests green; both profiles compile. RaD reflash only.

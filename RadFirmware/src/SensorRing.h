@@ -226,16 +226,16 @@ class SensorRing {
                                     (fDriveCreditMs - age) / fDriveCreditMs);
     }
 
-    // Degrees the dome could plausibly have moved from the last accepted position
-    // while the current pending discontinuity has persisted, given the commanded
-    // drive. A confirmed/fail-open jump beyond this is a sensor lie, not motion.
-    int32_t adoptAllowance(uint32_t nowMs) const {
+    // Degrees the dome could plausibly have moved from the last accepted
+    // position over the window that began at `sinceMs`, given the commanded
+    // drive. A jump adopted beyond this is a sensor lie, not motion.
+    int32_t allowanceOver(uint32_t nowMs, uint32_t sinceMs) const {
         uint8_t mag = driveMag(nowMs);
-        uint32_t adt = nowMs - fPendingSinceMs;
-        // A pending window accrued while the motor was OFF must not become
-        // instantly adoptable the moment drive returns: reach counts only from
-        // when the drive actually rose (plus the coast tail), not from when the
-        // reading first appeared.
+        uint32_t adt = nowMs - sinceMs;
+        // A window accrued while the motor was OFF must not become instantly
+        // adoptable the moment drive returns: reach counts only from when the
+        // drive actually rose (plus the coast tail), not from when the reading
+        // first appeared.
         if (mag > 0 && fDriveRiseMs != 0) {
             uint32_t sinceRise = nowMs - fDriveRiseMs + kCoastMs;
             if (adt > sinceRise)
@@ -245,6 +245,11 @@ class SensorRing {
             adt = 10000;
         int32_t reach = static_cast<int32_t>((maxDegPerMsQ10() * adt) >> 10);
         return reach * mag / 100 + kSlackDeg + (mag > 0 ? kCoastDeg : 0);
+    }
+
+    // Confirm-path allowance: over the current pending value's persistence.
+    int32_t adoptAllowance(uint32_t nowMs) const {
+        return allowanceOver(nowMs, fPendingSinceMs);
     }
 
     void onFrame(int16_t deg, uint32_t nowMs) {
@@ -346,13 +351,24 @@ class SensorRing {
 
         int16_t dist = circularDistance(med, fPosition);
         if (dist <= allowed) {
+            bool moved = dist > kSlackDeg;
             accept(med, nowMs, /*jump=*/false);
             fPendingCount = 0;
-            fRejectStreak = 0;
+            // The fail-open streak counts rejects since the believed position
+            // last TRULY moved. A stationary re-accept must not reset it: the
+            // stable ~299/304 alias re-anchors the tracker every few frames
+            // while the real sweep is rejected in between — resetting here let
+            // the anchor lie survive indefinitely and the controller drove
+            // blind for seconds (bench log 2026-08-20, tgt=274: pos pinned at
+            // 299 for ~3 s of driving, rej +106).
+            if (moved)
+                fRejectStreak = 0;
         } else {
             // Discontinuity: require N consecutive samples agreeing on the new
             // position before believing it.
             ++fStats.rejectedRate;
+            if (fRejectStreak == 0)
+                fRejectSinceMs = nowMs; // fail-open window opens here
             if (fRejectStreak < 255)
                 ++fRejectStreak; // saturate: a long hold must not wrap the byte
             bool agreed =
@@ -385,7 +401,16 @@ class SensorRing {
                 fRejectStreak = 0;
                 return;
             }
-            if (fRejectStreak >= kRejectStreakLimit && plausibleAdopt) {
+            // Fail-open plausibility is judged over the WHOLE reject streak,
+            // not the pending window: during a real sweep past the alias arc
+            // the median moves >jitter every frame, so pending resets
+            // constantly and its window never grows — while the distance the
+            // dome has actually travelled (and the drive commanding it) keeps
+            // accumulating. The streak window is what the physics model must
+            // cover for "reality has been knocking for a while now".
+            bool plausibleFailOpen =
+                !fDriveArmed || dist <= allowanceOver(nowMs, fRejectSinceMs);
+            if (fRejectStreak >= kRejectStreakLimit && plausibleFailOpen) {
                 // Fail-open: adopt reality rather than freeze (see tuning note).
                 accept(med, nowMs, /*jump=*/true);
                 fPendingCount = 0;
@@ -438,7 +463,8 @@ class SensorRing {
     int16_t fPendingValue = 0;
     uint8_t fPendingCount = 0;
     uint32_t fPendingSinceMs = 0;  // when the current pending discontinuity began
-    uint8_t fRejectStreak = 0;
+    uint8_t fRejectStreak = 0;     // rejects since the position last truly moved
+    uint32_t fRejectSinceMs = 0;   // when the current reject streak began
     uint32_t fLastFrameMs = 0;
     uint32_t fLastAcceptMs = 0;
     bool fActive = false;         // a move/manual drive is active this loop (noteActive)
