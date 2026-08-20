@@ -13,13 +13,20 @@ void IRAM_ATTR PwmIO::isr(void* arg) {
         uint32_t width = nowUs - self->fRiseUs;
         if (width >= 500 && width <= 2500) { // plausible RC pulse only
             // Pulse-TRAIN tracking: a real receiver repeats frames every
-            // ~20 ms; a floating input picking up motor noise produces lone
-            // plausible-width pulses at random spacing. Count consecutive
-            // pulses arriving at RC cadence — pulseUs() only believes the
+            // ~20 ms with near-identical widths; a floating input picking up
+            // motor noise produces plausible-width pulses at random spacing
+            // and random widths. Count consecutive pulses arriving at RC
+            // cadence AND width-consistent — pulseUs() only believes the
             // input once the streak shows a genuine transmitter (field
-            // failure: noise blips cancelled sequences as phantom "manual").
+            // failures: lone noise blips cancelled sequences as phantom
+            // "manual", and cadence alone was still beaten during full-power
+            // drive — the width check is what noise cannot fake).
             uint32_t nowMs = millis();
-            if (nowMs - self->fPrevPulseMs <= kMaxFrameGapMs) {
+            int32_t step = static_cast<int32_t>(width) - self->fPulseUs;
+            bool cadence = nowMs - self->fPrevPulseMs <= kMaxFrameGapMs;
+            bool similar = step <= static_cast<int32_t>(kMaxWidthStepUs) &&
+                           step >= -static_cast<int32_t>(kMaxWidthStepUs);
+            if (cadence && similar) {
                 if (self->fStreak < 255)
                     self->fStreak = self->fStreak + 1;
             } else {

@@ -324,3 +324,62 @@ The undriven defenses are unchanged: alias/wander still held out at 0% drive
 transmitter is on), no more silent move kills, and any alias episode
 recovering in ~1 s with a `jmp` increment instead of a multi-second blind
 drive. 85 host tests green; both profiles compile. RaD reflash only.
+
+## 2026-08-20 (late evening) — second bench run: the parked-lie move-start hole
+
+Second serial capture, two halves: transmitter OFF, then transmitter ON (user
+touched nothing either time). Three firmware findings, all fixed; one
+configuration finding for the operator.
+
+**1. The real remaining bug: a parked lie could seed the next move's anchor.**
+Signature in both halves: dome parks near ~204 → `rej` climbs ~1/s forever
+(the ring latched a trap-arc alias at rest; every 1 Hz heartbeat correctly
+rejected by the parked-hold) → an automation/sequence move starts → the very
+first [DBG] line of the move shows `pos=60` (≈144° teleport, `jmp` frozen) →
+the controller drives the wrong way with a rejection storm (rej +100 over a
+few seconds) until the believed position happens to wrap back within range.
+Root cause (SensorRing main gate): the armed motor-plausibility cap scaled
+kinematic reach over `dt = now − fLastAcceptMs` by the CURRENT drive. After a
+parked no-accept stretch dt hits the 10 s cap, so the moment drive rises the
+cap is ~180° and the first lie frame walks in as *ordinary motion* — no jump
+flag, no replan, `jmp` never ticks. (The "recovery" seconds later was the
+same hole re-admitting reality, not the fail-open.) **Fix:** the cap now goes
+through `allowanceOver()`, which clamps the window to when the drive actually
+ROSE (+ coast) — the rule the confirm/fail-open paths already used. The lie
+is rejected at move start; tracking re-locks on the real code stream within
+~3 frames. Regression: `sensor_parked_lie_cannot_seed_move_start`.
+Trade-off, documented: a dome hand-rotated far while parked no longer
+re-locks on the first frame of the next move; it re-locks via the
+confirm/fail-open windows as the drive persists (bounded), or on re-warm-up.
+
+**2. TIMEOUT with the dome ON target.** `tgt=205` rested at 210 (in-arc),
+motor at 0, ring lying → zero accepted samples → dwell starved → 5 s
+watchdog raised `TIMEOUT (dome stuck?)` for a move that had physically
+completed. **Fix (MotionController):** "quiet arrival" — resting inside the
+arc at zero drive with the sample stream stalled >1.5 s (longer than the
+parked heartbeat) completes as a normal arrival (settle armed, busy()
+released). Out-of-arc stalls still fault. BEHAVIOR.md D18; test:
+`motion_stalled_tracking_inside_arc_arrives_quietly`.
+
+**3. Streak-3 was beaten once at full drive.** One `[MAN] 23% (PWM)` +
+`SEQUENCE CANCELLED` with the transmitter off, during a wire=−100 move:
+motor noise produced 3 cadenced plausible pulses. **Fix (PwmIO):** streak
+raised to 8 AND consecutive widths must agree within 150 µs (real RC frames
+repeat near-identical widths; noise widths are random — ~1e-6 to fake). A
+real stick still engages ≤160 ms after grab. BEHAVIOR.md D17.
+
+**4. NOT a firmware bug — the transmitter-ON half.** With the controller
+powered and untouched, `[MAN]` engaged repeatedly at sustained ±15…46% for
+seconds at a time (sign-flipping, width-stable, starting from a motionless
+dome — genuine frames, not noise) and drove the dome full circles, cancelling
+sequences (manual outranks automation by design, D11). Something in the
+powered controller chain emits dome-drive PWM when idle — most likely the
+drive system's own auto-dome/dome channel output. Operator options: disable
+the dome output/auto-dome on that controller, or `#DPPWMIN0` (+restart) if
+this line should never command the dome, or recalibrate
+`#DPPWMNEUTRAL/#DPPWMDEADBAND` if it turns out to be a trim offset (the
+sign-flipping pattern argues against). The `[MAN]` log line now names the
+culprit and magnitude either way.
+
+86 host tests green; both profiles compile (display 954567 B / compact
+947115 B). RaD reflash only — sensor ring untouched.

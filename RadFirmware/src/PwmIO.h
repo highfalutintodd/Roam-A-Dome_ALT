@@ -25,12 +25,22 @@ class PwmIO {
         }
     }
 
-    // A real RC receiver repeats frames at ~50 Hz; require this many
-    // consecutive pulses at that cadence before believing the input. A lone
-    // plausible-width pulse (floating pin + motor noise) must never read as
-    // stick input — it was cancelling sequences as phantom "manual override".
-    static constexpr uint8_t kMinPulseStreak = 3;
+    // A real RC receiver repeats frames at ~50 Hz with near-identical widths
+    // frame to frame; require this many consecutive pulses at that cadence AND
+    // width-consistent before believing the input. A lone plausible-width
+    // pulse (floating pin + motor noise) must never read as stick input — it
+    // was cancelling sequences as phantom "manual override" — and a streak of
+    // 3 was still beaten by cadenced noise bursts during full-power drive
+    // (bench 2026-08-20 evening: [MAN] 23% with the transmitter off). Eight
+    // width-consistent frames is 160 ms — imperceptible on a real stick grab,
+    // ~1e-6 for random-width noise.
+    static constexpr uint8_t kMinPulseStreak = 8;
     static constexpr uint32_t kMaxFrameGapMs = 40; // 50 Hz frames + margin
+    // Max width change between consecutive streak frames. A stick sweep moves
+    // ~10-60 us/frame; noise widths are random over the whole 500-2500 band.
+    // A genuine instant stick slam breaks the streak once and re-arms in
+    // kMinPulseStreak frames.
+    static constexpr uint16_t kMaxWidthStepUs = 150;
 
     // Latest captured pulse width; 0 if none seen for staleWindowMs or the
     // pulse train is too short to be a genuine transmitter.

@@ -330,21 +330,30 @@ class SensorRing {
             allowed = 180;
         // Motor-plausibility cap. When the guard is armed, a reported change
         // can't exceed what the effective drive (current command, or the recent
-        // peak decayed across kCoastMs — see driveMag) over dt could produce,
-        // plus a kCoastDeg floor while that drive is nonzero. While the
-        // controller holds station in the arrival arc the effective drive
-        // decays to 0 within the coast window, so the cap collapses to
-        // kSlackDeg — the ~299/304 alias and the ±35° coarse-arc wander (both
-        // physically impossible with the motor off) are rejected before they
-        // ever reach the controller, so it never gets kicked out of the arc
-        // and never re-pulses the motor (the self-exciting hunt). At full
-        // drive the cap exceeds the kinematic `allowed`, so fast and
+        // peak decayed across kCoastMs — see driveMag) over the no-accept
+        // window could produce, plus a kCoastDeg floor while that drive is
+        // nonzero. While the controller holds station in the arrival arc the
+        // effective drive decays to 0 within the coast window, so the cap
+        // collapses to kSlackDeg — the ~299/304 alias and the ±35° coarse-arc
+        // wander (both physically impossible with the motor off) are rejected
+        // before they ever reach the controller, so it never gets kicked out
+        // of the arc and never re-pulses the motor (the self-exciting hunt).
+        // At full drive the cap exceeds the kinematic `allowed`, so fast and
         // over-limit moves are unchanged; a just-released jog's coasting tail
         // is still tracked because the launching drive decays rather than
         // vanishing.
+        //
+        // Computed via allowanceOver so the window is clamped to when the
+        // drive actually ROSE (+ coast), never the raw time since the last
+        // accept. A dome parked with the ring latched on a stable alias
+        // accrues a long no-accept stretch (every lying heartbeat rejected —
+        // correct); scaling THAT stretch by a freshly risen drive let the very
+        // first lie frame of the next move through as ordinary motion — no
+        // jump flag, no replan — so the controller launched from a ~144°-wrong
+        // anchor and drove blind the wrong way (bench 2026-08-20 evening:
+        // [DBG] pos 204→60 at move start, jmp frozen, rej +106 storm).
         if (fDriveArmed) {
-            uint8_t mag = driveMag(nowMs);
-            int32_t plaus = (full * mag) / 100 + kSlackDeg + (mag > 0 ? kCoastDeg : 0);
+            int32_t plaus = allowanceOver(nowMs, fLastAcceptMs);
             if (allowed > plaus)
                 allowed = plaus;
         }

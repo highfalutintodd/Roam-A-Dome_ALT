@@ -104,6 +104,7 @@ class MotionController {
         fSwingPeak = 0;
         fRelative = false;
         fHomeRestArc = 0;
+        fLastSampleAt = 0;
     }
 
     // Degrees relative to home (":DPA90" semantics).
@@ -211,6 +212,27 @@ class MotionController {
     }
 
   private:
+    // No fresh accepted sample for this long, while resting inside the arc at
+    // zero drive, completes the arrival. Must clear the ring's 1 Hz parked
+    // heartbeat with margin: a healthy agreeing ring keeps samples flowing and
+    // never trips this; only a guard-rejected (lying) ring goes quiet.
+    static constexpr uint16_t kQuietArriveMs = 1500;
+
+    // Shared arrival tail for the dwell-complete and quiet-arrival paths.
+    int8_t arrive(const Inputs& in, int16_t arc) {
+        fArrived = true;
+        // A home arrival may legitimately rest anywhere inside the latched
+        // arc; remember that width so homeMode's "am I home?" test doesn't
+        // measure the rest point against the tight fudge and re-seek forever
+        // (the seek would just hunt, latch, and rest off-home again).
+        fHomeRestArc = fTarget == normalizeDeg(tuning.homePos) ? arc : 0;
+        // Settle delay before idle automation may resume (#DPTARGETMIN/MAX).
+        fSettleUntil = in.now + fRng(tuning.targetMinS, tuning.targetMaxS) * 1000u;
+        fSettleArmed = true;
+        stop();
+        return 0;
+    }
+
     int8_t tickTarget(const Inputs& in, uint32_t dt) {
         if (!in.sensorValid) {
             fFault = Fault::kSensorLost;
@@ -291,6 +313,7 @@ class MotionController {
         // Dwell + watchdog progress advance only on fresh accepted samples.
         if (in.sampleCount != fLastSample) {
             fLastSample = in.sampleCount;
+            fLastSampleAt = in.now;
             if (adist <= arc) {
                 ++fDwellCount;
             } else if (fDwellCount > 0) {
@@ -317,19 +340,21 @@ class MotionController {
                 fProgressAt = in.now;
         }
 
-        if (fDwellCount >= tuning.dwell) {
-            fArrived = true;
-            // A home arrival may legitimately rest anywhere inside the latched
-            // arc; remember that width so homeMode's "am I home?" test doesn't
-            // measure the rest point against the tight fudge and re-seek forever
-            // (the seek would just hunt, latch, and rest off-home again).
-            fHomeRestArc = fTarget == normalizeDeg(tuning.homePos) ? arc : 0;
-            // Settle delay before idle automation may resume (#DPTARGETMIN/MAX).
-            fSettleUntil = in.now + fRng(tuning.targetMinS, tuning.targetMaxS) * 1000u;
-            fSettleArmed = true;
-            stop();
-            return 0;
-        }
+        if (fDwellCount >= tuning.dwell)
+            return arrive(in, arc);
+        // Quiet arrival: inside the arc, motor commanding 0, and the accepted-
+        // sample stream stalled past the parked heartbeat cadence. That is the
+        // signature of the plausibility guard correctly holding out a lying
+        // ring (a trap-arc alias latched at rest) — and a parked dome with the
+        // motor off cannot move itself, so the last believed position IS where
+        // it stopped. Declare arrival rather than starve the dwell into a
+        // TIMEOUT fault (bench 2026-08-20 evening: tgt=205 rested at 210
+        // inside the trap arc and faulted after 5 s with the dome on target).
+        // Out-of-arc stalls still fall through to the watchdog below.
+        if (fLastSampleAt == 0)
+            fLastSampleAt = in.now; // move started with no sample yet: baseline
+        if (adist <= arc && in.now - fLastSampleAt > kQuietArriveMs)
+            return arrive(in, arc);
         // No-progress watchdog. Checked BEFORE the in-arc return so a move
         // whose accepted-sample stream stalls (e.g. the plausibility guard
         // holding out a discontinuity at zero drive) faults instead of hanging
@@ -441,6 +466,7 @@ class MotionController {
     uint8_t fCurSpeed = 0;
     uint8_t fDwellCount = 0;
     uint32_t fLastSample = 0;
+    uint32_t fLastSampleAt = 0; // when sampleCount last advanced this move (0 = not yet)
     int16_t fBestDist = 32767; // smallest |dist| yet this move (watchdog watermark)
     uint8_t fMaxDwell = 0;     // high-water dwell count this move (watchdog watermark)
     uint32_t fProgressAt = 0;

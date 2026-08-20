@@ -509,3 +509,45 @@ TEST(sensor_alias_anchor_cannot_freeze_driven_tracking) {
     CHECK(adopted); // reality wins in bounded time (was: frozen indefinitely)
     CHECK(circularDistance(sr.position(), real) <= 25);
 }
+
+TEST(sensor_parked_lie_cannot_seed_move_start) {
+    // Bench log 2026-08-20 (evening, run 2): the dome parks inside a trap arc,
+    // the ring latches the stable alias, and every 1 Hz parked heartbeat is
+    // rejected by the parked-hold (correct — position held). Then an
+    // automation move starts. The armed plausibility cap used to scale the
+    // kinematic reach over the WHOLE no-accept parked stretch (10 s cap) by
+    // the freshly risen drive, so the very first lie frame of the move was
+    // accepted as ordinary motion — no jump flag, no replan — and the
+    // controller launched from a ~144°-wrong anchor and drove blind the wrong
+    // way ([DBG]: pos 204→60 at move start, jmp frozen, rej +106 storm). The
+    // reach window must count from when the drive actually rose, so the lie
+    // is rejected and tracking re-locks on the real code stream instead.
+    uint32_t now;
+    SensorRing sr = warmedUp(204, &now);
+    frameDriven(sr, 204, now, 30); // a real drive episode arms the guard
+    now += kDt;
+    sr.noteActive(false, now, 0); // move ends; dome parks in the trap arc
+    now += 600;                   // past the coast window: parked-hold engages
+    for (int i = 0; i < 15; ++i, now += 1000) { // 15 s of lying 1 Hz heartbeats
+        sr.noteActive(false, now, 0);
+        frame(sr, 60, now);
+    }
+    CHECK_EQ(sr.position(), 204); // parked-hold held the true rest position
+    (void)sr.consumeJump();
+    // Move starts: drive rises to 30% while the ring is still sending the lie.
+    for (int i = 0; i < 3; ++i, now += kDt) {
+        frameDriven(sr, 60, now, 30);
+        CHECK_EQ(sr.position(), 204); // the lie must NOT seed the move anchor
+    }
+    CHECK(!sr.consumeJump());
+    // The dome actually starts turning: real codes resume and re-lock cleanly
+    // (the first two are outvoted by the lie-poisoned median window, then the
+    // median flips back to reality).
+    int real = 204;
+    for (int i = 0; i < 8; ++i, now += kDt) {
+        real = normalizeDeg(real + 1);
+        frameDriven(sr, real, now, 30);
+    }
+    CHECK(circularDistance(sr.position(), real) <= 3);
+    CHECK(!sr.consumeJump()); // re-lock is ordinary tracking, not a teleport
+}

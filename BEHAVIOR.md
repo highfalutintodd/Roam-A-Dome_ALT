@@ -131,6 +131,8 @@ Sequences: `#DPS<n>:<steps>` store, `#DPL` list, `#DPD<n>` delete.
    input or an explicit new `:DP` motion command.
 2. **Manual active** — non-neutral Syren-in frame or PWM outside deadband: passed through
    to motor out immediately (<5 ms added latency); kills any automation move same tick.
+   PWM only counts after a validated pulse train (D17), and the engage is logged
+   (`[MAN] manual input engaged: N% (PWM|Syren serial)`, rate-limited).
 3. **Idle** — manual neutral for `#DPIDLE` ms: automation eligible.
 4. **Automation** — runs only when sensor state is VALID and not e-stopped. Sensor going
    STALE mid-move: motor → neutral immediately; passthrough unaffected.
@@ -182,6 +184,8 @@ instead of silently corrupting it.
 | D14 | Polarity is learned once, then **frozen** until an explicit `#DPDIRLEARN`; the learner never re-derives the sign at runtime | it re-learned from motion the sensor filter was already rejecting (motor-current noise), flipped the sign mid-hold, inverted the position loop into positive feedback and ran the dome away at full speed — the "flip out" |
 | D15 | A tracker jump inside the arrival arc does not restart the arrival dwell | a glitch-prone arc near the target reset arrival every tick, so the hold hunted forever instead of latching idle |
 | D16 | Once the controller is **idle** (no move running) past a short coast window, the sensor tracker holds position and rejects any reported jump as an encoder misread (parked-hold) | a parked dome is mechanically incapable of moving, yet the absolute encoder can decode a marginal code to a stable-but-wrong angle for seconds — believing it corrupted the next move's start point (the "semi flip-out"); tracking re-locks on the next move. Gated on idle, NOT on wire==0: a target move sits at wire==0 while settling in the arrival arc, and freezing there pinned the position at a value a flickering encoder never re-reports, hanging the move in `target` forever (K-ARDS stuck, amber "moving" square latched) |
+| D17 | PWM manual input engages only after a validated pulse **train**: ≥8 consecutive pulses at RC cadence (≤40 ms apart) with width-consistent frames (≤150 µs step); anything less reads as neutral | legacy believed any plausible-width pulse — a floating input coupling motor noise cancelled sequences as phantom "manual override" (bench 2026-08-20, transmitter off; a cadence-only streak of 3 was still beaten at full drive). Real frames repeat near-identical widths; noise cannot fake 8 similar cadenced pulses. A real stick engages ≤160 ms after grab |
+| D18 | A target move resting **inside** its arrival arc at zero drive whose accepted-sample stream stalls (>1.5 s, longer than the parked heartbeat) completes as a normal arrival ("quiet arrival") instead of faulting TIMEOUT | the stall is the plausibility guard correctly holding out a ring that latched a trap-arc alias at rest — the motor is off and a parked dome cannot move itself, so the last believed position is where it stopped. Starving the dwell raised a TIMEOUT fault with the dome sitting on target (bench 2026-08-20 evening, tgt=205 resting at 210). Out-of-arc stalls still fault via the no-progress watchdog |
 
 ## 9. Display (display board only)
 

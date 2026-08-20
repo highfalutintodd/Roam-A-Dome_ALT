@@ -402,22 +402,42 @@ TEST(motion_timeout_zero_disables_watchdog) {
     CHECK(mc.fault() == MotionController::Fault::kNone);
 }
 
-TEST(motion_stalled_tracking_inside_arc_faults_instead_of_hanging) {
-    // The drive-0 freeze class: the dome sits inside the arrival arc while the
-    // tracker rejects every frame (accepted counter frozen), so the dwell can
-    // never complete. The move must fault within timeoutSec — never hang in
-    // kTarget with busy() latched until someone touches the stick.
+TEST(motion_stalled_tracking_inside_arc_arrives_quietly) {
+    // The drive-0 starve class: the dome rests inside the arrival arc while
+    // the tracker rejects every frame from a lying ring (accepted counter
+    // frozen), so the dwell can never complete. The motor is commanding 0 and
+    // a parked dome cannot move itself, so this IS the arrival — declare it
+    // instead of starving into a TIMEOUT fault (bench 2026-08-20 evening:
+    // tgt=205 rested at 210 inside the trap arc and faulted after 5 s with
+    // the dome on target). busy() must release so sequences advance.
     MotionController mc(midRng2);
     mc.tuning.homePos = 0;
     mc.moveToAbsolute(100, 0, 0, true);
     uint32_t now = 0;
     mc.tick(in(now, 98, 5)); // one fresh in-arc sample: dwell 1 of 3
-    for (int i = 0; i < 70 && mc.fault() == MotionController::Fault::kNone; ++i) {
+    for (int i = 0; i < 25 && mc.state() == MotionController::State::kTarget; ++i) {
         now += 100;
         mc.tick(in(now, 98, 5)); // sample counter frozen from here on
     }
-    CHECK(mc.fault() == MotionController::Fault::kTimeout);
+    CHECK(mc.state() == MotionController::State::kIdle);
+    CHECK(mc.fault() == MotionController::Fault::kNone);
+    CHECK(mc.arrived());
     CHECK(!mc.busy());
+
+    // The same starvation OUT of the arc is a genuinely stuck move (the motor
+    // is commanding motion that is not being tracked) — that must still fault
+    // within timeoutSec, never hang in kTarget with busy() latched.
+    MotionController mc2(midRng2);
+    mc2.tuning.homePos = 0;
+    mc2.moveToAbsolute(100, 0, 0, true);
+    uint32_t t = 0;
+    mc2.tick(in(t, 60, 5)); // out of arc, driving
+    for (int i = 0; i < 70 && mc2.fault() == MotionController::Fault::kNone; ++i) {
+        t += 100;
+        mc2.tick(in(t, 60, 5)); // sample counter frozen from here on
+    }
+    CHECK(mc2.fault() == MotionController::Fault::kTimeout);
+    CHECK(!mc2.busy());
 }
 
 TEST(motion_spin_respects_speed_bounds) {
