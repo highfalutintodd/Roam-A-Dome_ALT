@@ -10,7 +10,25 @@ K-ARDS / auto-dome is **fixed**. It was three stacked causes: a runtime polarity
 re-learn that inverted the control loop, a parked-hold regression I introduced,
 and a genuinely noisy absolute encoder. All three are addressed and **confirmed**.
 
-**RECURRENCE (2026-08-19) — new root cause, fix on branch `fix/dome-hunt-plausibility-guard` (awaiting field test).**
+**RESOLVED (2026-08-19) — merged to `main`.** Field-confirmed: no flip-outs across
+long K-ARDS/auto/manual sessions, positions landing within a few degrees. The work
+below (branch `fix/dome-hunt-plausibility-guard`, now merged) fixed it in three
+layers, each found from a real RaD `#DPDEBUG1` log: (1) a **motor-plausibility
+guard** in `SensorRing` — reject a reported jump the actual commanded drive over the
+elapsed time couldn't have produced, killing the 299/304 alias adoption even while
+driving; (2) an **overshoot-limit-cycle deadband** in `MotionController` — when the
+dome crosses the target twice (a hunt, not a single settling overshoot) widen the
+arrival/stop band to `fudgeMax` (18°) and latch it, so the motor stops instead of
+pumping the swing; (3) **accuracy tuning** — the widen triggers only on the *second*
+crossing, so ordinary moves keep the tight ±5° `fudge` and full precision; only a
+genuinely oscillating move trades accuracy for stability. Also added
+`SensorFirmware/DomeSensorCharacterize` + `characterization/` — a measured map of the
+ring showing it's a clean ~1° Gray-code encoder whose only fault is single-bit
+glitches onto far valid codes (blocklisting impossible → plausibility guard is the
+correct cure). RaD-side only; no sensor reflash needed for these fixes. Original
+detail of the first recurrence below.
+
+**RECURRENCE (2026-08-19) — new root cause, fix on branch `fix/dome-hunt-plausibility-guard`.**
 A K-ARDS flip-out returned. Sabé log (`logs/sabe log K-ARDS flip out 8:19:26.txt`)
 decoded: `:DPA323` is home-relative, so target was **203° absolute** and the dome
 was already there. The real fault is a *control-loop noise chase*: the coarse arc
