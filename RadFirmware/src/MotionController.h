@@ -25,15 +25,16 @@ struct MotionTuning {
     uint8_t targetSpeed = 100; // default when a move gives no speed argument
     uint8_t fudge = 5;         // arrival tolerance (degrees) in a clean arc
     // Adaptive-deadband ceiling. When a min-speed correction overshoots the tight
-    // ±fudge arc, the dome swings back and forth around the target and never lands
-    // (the overshoot limit cycle / "flip out"). On detecting that (recent samples
-    // straddling the target — see updateArc) the controller widens its "close
-    // enough, stop driving" band toward this ceiling so it stops inside the swing.
-    // Only engages once an overshoot is seen, so a clean landing keeps the tight
-    // `fudge`. Set == fudge to disable. The cost is honest and fine for a show dome:
-    // the move "arrives" within this many degrees rather than hunting — close enough
-    // beats flipping out.
-    uint8_t fudgeMax = 30;
+    // ±fudge arc, the dome can swing back and forth around the target and never
+    // land (the overshoot limit cycle / "flip out"). Only after the dome has
+    // crossed the target TWICE (see tickTarget) — a genuine oscillation, not a
+    // single settling overshoot — does the controller widen its "close enough, stop
+    // driving" band to this ceiling and latch it, stopping the motor inside the
+    // swing. Because a move must oscillate to trigger it, ordinary moves keep the
+    // tight `fudge` and full accuracy; only a hunting move trades precision for
+    // stability, and this bounds that worst-case error. Must exceed the overshoot
+    // amplitude (~13° at min speed) or the cycle survives. Set == fudge to disable.
+    uint8_t fudgeMax = 18;
     uint8_t dwell = 3;         // consecutive in-arc fresh samples = arrived
     bool scaling = false;      // ramp speed up instead of stepping
     uint8_t accScale = 20;     // ramp: ~accScale*20 ms from 0 to 100%
@@ -85,8 +86,9 @@ class MotionController {
         fCurSpeed = 0;
         fProgressAt = 0;
         fProgressPos = -1;
-        fNoiseCount = 0;
         fArcWide = tuning.fudge; // reset adaptive deadband for the new move
+        fArcSign = 0;
+        fArcCross = 0;
     }
 
     // Degrees relative to home (":DPA90" semantics).
@@ -182,14 +184,22 @@ class MotionController {
         int16_t dist = signedCircularDelta(in.position, fTarget);
         int16_t adist = dist < 0 ? -dist : dist;
 
-        // Record fresh positions and derive the adaptive arrival/deadband tolerance
-        // for this tick before anything uses it.
+        // Adaptive deadband, updated on each fresh sample. The arc stays tight
+        // (fudge) until the dome has CROSSED the target twice — overshot it, come
+        // back, and overshot again. One overshoot is normal and settles at full
+        // precision; two is an overshoot limit cycle that will hunt forever, so
+        // widen the arrival/deadband arc to fudgeMax and latch it, which stops the
+        // motor inside the swing. Requiring two crossings (not one) is what keeps
+        // ordinary moves accurate: only a genuinely oscillating move gives up
+        // precision, and even then it has made real correction passes first.
         if (in.sampleCount != fLastSample) {
-            fNoiseBuf[fNoiseIdx] = in.position;
-            fNoiseIdx = (fNoiseIdx + 1) % kNoiseWindow;
-            if (fNoiseCount < kNoiseWindow)
-                ++fNoiseCount;
-            updateArc();
+            int16_t d = signedCircularDelta(fTarget, in.position); // pos - target
+            int8_t sgn = d > tuning.fudge ? 1 : d < -tuning.fudge ? -1 : 0;
+            if (sgn != 0) {
+                if (fArcSign != 0 && sgn != fArcSign && ++fArcCross >= 2)
+                    fArcWide = tuning.fudgeMax; // latch wide: it's oscillating
+                fArcSign = sgn;
+            }
         }
         int16_t arc = fArcWide;
 
@@ -284,40 +294,6 @@ class MotionController {
             seekHome(tuning.homeSpeed);
     }
 
-    // Adaptive arrival/deadband tolerance, updated once per fresh sample. Baseline
-    // is the tight `fudge`. It widens toward `fudgeMax` the moment the recent
-    // samples STRADDLE the target — some past it, some short of it — by more than
-    // the tight window. That is the unmistakable signature of an overshoot limit
-    // cycle: each min-speed correction shoots through the ±fudge arc, so the dome
-    // swings back and forth and never lands (the 2026-08-19 "flip out": tgt 203,
-    // pos oscillating 190↔214, wire pulsing ±15 for seconds). Widening the arc to
-    // enclose the swing makes the controller stop driving inside it, killing the
-    // oscillation and letting the dwell complete. It LATCHES (grow-only) for the
-    // rest of the move: once the swing dies the samples no longer straddle, and
-    // without the latch the arc would snap back tight and immediately re-provoke
-    // the hunt. A move that approaches from one side and lands without overshooting
-    // never straddles, so a clean arc keeps full precision. Reset each move.
-    void updateArc() {
-        if (fNoiseCount < 4)
-            return;
-        int16_t below = 0, above = 0; // extent of samples short of / past the target
-        for (uint8_t k = 0; k < fNoiseCount; ++k) {
-            int16_t d = signedCircularDelta(fTarget, fNoiseBuf[k]); // pos - target
-            if (d < below)
-                below = d;
-            if (d > above)
-                above = d;
-        }
-        int16_t spread = above - below;
-        if (below < 0 && above > 0 && spread > tuning.fudge) {
-            int16_t w = tuning.fudge + spread;
-            if (w > tuning.fudgeMax)
-                w = tuning.fudgeMax;
-            if (w > fArcWide)
-                fArcWide = w; // latch: grow only
-        }
-    }
-
     uint8_t clampSpeed(uint8_t s) const {
         if (s < tuning.minSpeed)
             return tuning.minSpeed;
@@ -360,11 +336,9 @@ class MotionController {
     uint32_t fLastManual = 0;
     uint32_t fSchedAt = 0;
     uint32_t fLastTick = 0;
-    static constexpr uint8_t kNoiseWindow = 8;
-    int16_t fNoiseBuf[kNoiseWindow] = {}; // recent fresh positions (adaptive fudge)
-    uint8_t fNoiseIdx = 0;
-    uint8_t fNoiseCount = 0;
-    int16_t fArcWide = 5;                 // latched adaptive arc, >= tuning.fudge
+    int16_t fArcWide = 5;   // latched adaptive arc, >= tuning.fudge
+    int8_t fArcSign = 0;    // last side of target the dome was on (+1/-1/0)
+    uint8_t fArcCross = 0;  // times it has crossed the target this move
 };
 
 } // namespace rad

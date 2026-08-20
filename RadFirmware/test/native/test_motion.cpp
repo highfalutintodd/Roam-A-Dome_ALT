@@ -312,6 +312,34 @@ TEST(motion_overshoot_limit_cycle_stops_driving) {
     CHECK(mc.state() == MotionController::State::kIdle);
 }
 
+TEST(motion_single_overshoot_still_lands_accurately) {
+    // Accuracy guard (the 2026-08-19 post-fix log showed some moves stopping ~27°
+    // off): a move that overshoots the target ONCE and settles must still arrive at
+    // full precision — a lone overshoot must NOT trip the adaptive deadband. Only a
+    // sustained oscillation (two crossings) is allowed to widen the arc.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveToAbsolute(200, 30, 0, true);
+    uint32_t now = 1000, samples = 0;
+
+    // Approach from below, overshoot once to 208, then come back and settle at 200.
+    int seq[] = {150, 175, 195, 208, 204, 201, 200, 200, 200};
+    int arrivedAtPos = -1;
+    bool droveAfterOvershoot = false;
+    for (int p : seq) {
+        now += 250;
+        int8_t out = mc.tick(in(now, (int16_t)p, ++samples));
+        if (p == 208 && out != 0)
+            droveAfterOvershoot = true;   // kept correcting, did NOT stop at 208
+        if (arrivedAtPos < 0 && mc.arrived())
+            arrivedAtPos = p;
+    }
+    CHECK(mc.state() == MotionController::State::kIdle);
+    CHECK(droveAfterOvershoot);                                   // no premature stop
+    CHECK(arrivedAtPos >= 0);
+    CHECK(circularDistance(arrivedAtPos, 200) <= mc.tuning.fudge); // landed tight, not at 208
+}
+
 TEST(motion_spin_runs_without_sensor) {
     // Continuous spin is operator-commanded and does not require the sensor
     // (legacy behavior); staleness only gates position-based automation.
