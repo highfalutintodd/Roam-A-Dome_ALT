@@ -42,7 +42,7 @@ cancels a running sequence outright (`SEQUENCE CANCELLED (manual override)`).
 |---|---|---|
 | Absolute | `A[M][R\|<deg>][,speed[,maxspeed]][+]` | Rotate to `<deg>`, measured **relative to home**. Negative goes the other way. |
 | Relative | `D[M][R\|<deg>][,speed[,maxspeed]][+]` | Rotate `<deg>` from the current position. |
-| Spin | `R<-100…100>` | Continuous spin; sign sets direction, `R0` stops. |
+| Spin | `R<-100…100>` | Continuous spin; sign sets direction, `R0` stops. Clamped to the `#DPMINSPEED`–`#DPMAXSPEED` band (below-minimum stops). |
 | Home | `H[R][speed]` | Seek the home position. |
 | Wait (s) | `W<0…600>` | Wait seconds before the next step. |
 | Wait (ms) | `WM<ms>` | Wait milliseconds. |
@@ -55,7 +55,10 @@ cancels a running sequence outright (`SEQUENCE CANCELLED (manual override)`).
 
 Modifiers:
 
-- **`R`** in place of a number — random target (`AR`, `DR`, `HR`, `RR`).
+- **`R`** in place of a number — random value (`AR`, `DR`, `HR`, `RR`): `AR`
+  picks a home-relative target over the full circle, `DR` a random relative
+  turn (0–359° from here), `HR` a random speed home seek, `RR` a random
+  speed and direction spin. `AR,speed[,maxspeed]` still takes speed args.
 - **`M`** after `A`/`D` — one-shot: return the mode to off after the move.
 - **`+`** suffix — fire-and-forget: the sequence advances immediately instead of
   waiting for arrival.
@@ -105,6 +108,7 @@ Modifiers:
 | `#DPTARGETSPEED<n>` | 0–100 | 100 | Speed for targeted moves. |
 | `#DPINPUTSPEED<n>` | 0–100 | 100 | Scale applied to manual passthrough. |
 | `#DPFUDGE<n>` | 0–20 | 5 | Arrival tolerance in degrees. |
+| `#DPFUDGEMAX<n>` | 0–45 | 18 | Adaptive-deadband ceiling: a hunting move widens its arrival arc up to this (sized from the measured swing). Must exceed the overshoot amplitude at your `#DPMINSPEED`; set == `#DPFUDGE` to disable widening. |
 | `#DPSCALE<0\|1>` | | 0 | Enable acceleration/deceleration ramping. |
 | `#DPASCALE<n>` | 0–255 | 20 | Acceleration rate when ramping. |
 | `#DPDSCALE<n>` | 0–255 | 50 | Deceleration zone, in degrees. |
@@ -150,7 +154,7 @@ everything else.
 | `#DPAUTOMIN<sec>` / `#DPAUTOMAX<sec>` | | 6 / 8 | Delay range between random moves. |
 | `#DPHOMEMIN<sec>` / `#DPHOMEMAX<sec>` | | 6 / 8 | Delay range before an automatic home. |
 | `#DPTARGETMIN<sec>` / `#DPTARGETMAX<sec>` | | 0 / 1 | Settle delay range after a targeted move. |
-| `#DPAUTOSAFETY<0\|1>` | | 1 | Require a valid sensor before automation runs. |
+| `#DPAUTOSAFETY<0\|1>` | | 1 | Legacy compat only — v2 *always* requires a valid sensor before automation (BEHAVIOR §5); the stored value has no effect. |
 | `#DPAUTORESTART<0\|1>` | | 1 | Resume automation after it is interrupted. |
 | `#DPIDLE<ms>` | 0–60000 | 3000 | Manual-neutral time before automation resumes. |
 

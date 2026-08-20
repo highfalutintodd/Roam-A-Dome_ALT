@@ -12,42 +12,50 @@
 #pragma once
 
 #include "CircularMath.h"
+#include "Settings.h"
 
 #include <cstdint>
 
 namespace rad {
 
+// Defaults mirror RadSettings{} so a bare-constructed controller (host tests)
+// runs the SAME numbers the device runs after CommandExec::applyTuning — one
+// source of truth, no silent drift between bench and droid.
 struct MotionTuning {
-    uint8_t maxSpeed = 100;
-    uint8_t minSpeed = 15;
-    uint8_t homeSpeed = 40;
-    uint8_t autoSpeed = 30;
-    uint8_t targetSpeed = 100; // default when a move gives no speed argument
-    uint8_t fudge = 5;         // arrival tolerance (degrees) in a clean arc
-    // Adaptive-deadband ceiling. When a min-speed correction overshoots the tight
-    // ±fudge arc, the dome can swing back and forth around the target and never
-    // land (the overshoot limit cycle / "flip out"). Only after the dome has
-    // crossed the target TWICE (see tickTarget) — a genuine oscillation, not a
-    // single settling overshoot — does the controller widen its "close enough, stop
-    // driving" band to this ceiling and latch it, stopping the motor inside the
-    // swing. Because a move must oscillate to trigger it, ordinary moves keep the
-    // tight `fudge` and full accuracy; only a hunting move trades precision for
-    // stability, and this bounds that worst-case error. Must exceed the overshoot
-    // amplitude (~13° at min speed) or the cycle survives. Set == fudge to disable.
-    uint8_t fudgeMax = 18;
-    uint8_t dwell = 3;         // consecutive in-arc fresh samples = arrived
-    bool scaling = false;      // ramp speed up instead of stepping
-    uint8_t accScale = 20;     // ramp: ~accScale*20 ms from 0 to 100%
-    uint8_t decScale = 50;     // deceleration zone (degrees from target)
-    uint8_t timeoutSec = 5;    // stuck-dome watchdog
-    int16_t homePos = 240;     // sensor angle of "home"
-    bool homeMode = false;     // idle behavior: return home
-    bool autoMode = false;     // idle behavior: random seek
-    uint8_t autoLeft = 47;     // max auto excursion left of home (degrees)
-    uint8_t autoRight = 46;    // right of home
-    uint16_t autoMinS = 6, autoMaxS = 8;
-    uint16_t homeMinS = 6, homeMaxS = 8;
-    uint16_t idleMs = 3000;    // manual-neutral time before automation resumes
+    uint8_t maxSpeed = RadSettings{}.maxSpeed;
+    uint8_t minSpeed = RadSettings{}.minSpeed;
+    uint8_t homeSpeed = RadSettings{}.homeSpeed;
+    uint8_t autoSpeed = RadSettings{}.autoSpeed;
+    uint8_t targetSpeed = RadSettings{}.targetSpeed; // default when a move gives no speed argument
+    uint8_t fudge = RadSettings{}.fudge; // arrival tolerance (degrees) in a clean arc
+    // Adaptive-deadband ceiling (#DPFUDGEMAX). When a min-speed correction
+    // overshoots the tight ±fudge arc, the dome can swing back and forth around
+    // the target and never land (the overshoot limit cycle / "flip out"). Only
+    // after the dome has crossed the target TWICE (see tickTarget) — a genuine
+    // oscillation, not a single settling overshoot — does the controller widen
+    // its "close enough, stop driving" band and latch it, stopping the motor
+    // inside the swing. The latched width is sized from the MEASURED swing (so
+    // a small hunt gives up only a little precision), clamped to [fudge, this
+    // ceiling]. Must exceed the overshoot amplitude at the configured minSpeed
+    // (~13° at 15%) or the cycle survives the latch — raise it together with
+    // #DPMINSPEED on heavy domes. Set == fudge to disable widening.
+    uint8_t fudgeMax = RadSettings{}.fudgeMax;
+    uint8_t dwell = RadSettings{}.dwell; // consecutive in-arc fresh samples = arrived
+    bool scaling = RadSettings{}.scaling;   // ramp speed up instead of stepping
+    uint8_t accScale = RadSettings{}.accScale; // ramp: ~accScale*20 ms from 0 to 100%
+    uint8_t decScale = RadSettings{}.decScale; // deceleration zone (degrees from target)
+    uint8_t timeoutSec = RadSettings{}.timeoutSec; // stuck-dome watchdog; 0 disables (#DPTIMEOUT0)
+    int16_t homePos = RadSettings{}.homePos;   // sensor angle of "home"
+    bool homeMode = false;     // idle behavior: return home (runtime-only, D12)
+    bool autoMode = false;     // idle behavior: random seek (runtime-only, D12)
+    uint8_t autoLeft = RadSettings{}.autoLeft;   // max auto excursion left of home (degrees)
+    uint8_t autoRight = RadSettings{}.autoRight; // right of home
+    uint16_t autoMinS = RadSettings{}.autoMinS, autoMaxS = RadSettings{}.autoMaxS;
+    uint16_t homeMinS = RadSettings{}.homeMinS, homeMaxS = RadSettings{}.homeMaxS;
+    // Settle delay after a targeted move arrives, before idle automation may
+    // resume (#DPTARGETMIN/#DPTARGETMAX, seconds — legacy semantics).
+    uint16_t targetMinS = RadSettings{}.targetMinS, targetMaxS = RadSettings{}.targetMaxS;
+    uint16_t idleMs = RadSettings{}.idleMs; // manual-neutral time before automation resumes
 };
 
 class MotionController {
@@ -69,6 +77,9 @@ class MotionController {
         bool jumped = false;      // SensorRing consumeJump()
         bool manualActive = false;
         bool estop = false;
+        // A sequence is executing (including its wait steps): idle automation
+        // must not schedule its own moves into the middle of it.
+        bool suppressAutomation = false;
     };
 
     // ---- commands -----------------------------------------------------------
@@ -85,15 +96,30 @@ class MotionController {
         fDwellCount = 0;
         fCurSpeed = 0;
         fProgressAt = 0;
-        fProgressPos = -1;
+        fBestDist = 32767;
+        fMaxDwell = 0;
         fArcWide = tuning.fudge; // reset adaptive deadband for the new move
         fArcSign = 0;
         fArcCross = 0;
+        fSwingPeak = 0;
+        fRelative = false;
+        fHomeRestArc = 0;
     }
 
     // Degrees relative to home (":DPA90" semantics).
     void moveHomeRelative(int16_t deg, uint8_t speed, uint8_t maxSpeed, bool blocking) {
         moveToAbsolute(static_cast<int16_t>(tuning.homePos + deg), speed, maxSpeed, blocking);
+    }
+
+    // Delta from a position the caller just read (":DPD" semantics). Unlike an
+    // absolute move, a confirmed tracker jump ABORTS it with kJump instead of
+    // re-planning: the delta was measured from a start point now known to be
+    // wrong, so completing the move would land somewhere never asked for
+    // (BEHAVIOR.md §7: a jump aborts an in-progress relative move with an error).
+    void moveRelative(int16_t fromPos, int16_t deltaDeg, uint8_t speed, uint8_t maxSpeed,
+                      bool blocking) {
+        moveToAbsolute(static_cast<int16_t>(fromPos + deltaDeg), speed, maxSpeed, blocking);
+        fRelative = true;
     }
 
     void moveRandom(uint8_t speed, bool blocking) {
@@ -112,7 +138,17 @@ class MotionController {
             stop();
             return;
         }
-        fSpinPct = pct;
+        // #DPMAXSPEED caps ALL automated motion, spin included. A request below
+        // minSpeed stops instead of holding the motor energised too weak to
+        // actually turn the dome (legacy zeroed sub-minimum speeds).
+        int16_t mag = pct < 0 ? static_cast<int16_t>(-static_cast<int16_t>(pct)) : pct;
+        if (mag < tuning.minSpeed) {
+            stop();
+            return;
+        }
+        if (mag > tuning.maxSpeed)
+            mag = tuning.maxSpeed;
+        fSpinPct = pct < 0 ? static_cast<int8_t>(-mag) : static_cast<int8_t>(mag);
         fState = State::kSpin;
         fFault = Fault::kNone;
         fCurSpeed = 0;
@@ -120,7 +156,7 @@ class MotionController {
 
     void stop() {
         fState = State::kIdle;
-        fSchedAt = 0;
+        fSchedArmed = false;
         fCurSpeed = 0;
     }
 
@@ -192,17 +228,48 @@ class MotionController {
         // motor inside the swing. Requiring two crossings (not one) is what keeps
         // ordinary moves accurate: only a genuinely oscillating move gives up
         // precision, and even then it has made real correction passes first.
-        if (in.sampleCount != fLastSample) {
+        if (in.sampleCount != fLastSample && !in.jumped) {
             int16_t d = signedCircularDelta(fTarget, in.position); // pos - target
-            int8_t sgn = d > tuning.fudge ? 1 : d < -tuning.fudge ? -1 : 0;
+            int16_t ad = d < 0 ? static_cast<int16_t>(-d) : d;
+            // Count a crossing only NEAR the target: signedCircularDelta also
+            // flips sign at the antipode (±180), and a genuine overshoot swing
+            // is small (~13° at min speed) — a distant sign flip is approach or
+            // jitter, not hunting. Jump samples are excluded outright: an
+            // adopted tracker correction teleports the believed position and is
+            // not a physical swing.
+            int8_t sgn = 0;
+            if (ad <= 90)
+                sgn = d > tuning.fudge ? 1 : d < -tuning.fudge ? -1 : 0;
             if (sgn != 0) {
-                if (fArcSign != 0 && sgn != fArcSign && ++fArcCross >= 2)
-                    fArcWide = tuning.fudgeMax; // latch wide: it's oscillating
+                bool flipped = fArcSign != 0 && sgn != fArcSign;
+                if (flipped)
+                    ++fArcCross;
+                if (fArcCross > 0 && ad > fSwingPeak)
+                    fSwingPeak = ad; // amplitude of the oscillation, once it started
+                if (flipped && fArcCross >= 2) {
+                    // Latch: size the arc from the MEASURED swing (+ margin) so a
+                    // small hunt gives up only a little precision, clamped to
+                    // [current arc, fudgeMax]. Never narrows — a fudge configured
+                    // above fudgeMax must not invert widening into tightening.
+                    int16_t w = static_cast<int16_t>(fSwingPeak + 2);
+                    if (w > tuning.fudgeMax)
+                        w = tuning.fudgeMax;
+                    if (w > fArcWide)
+                        fArcWide = w;
+                }
                 fArcSign = sgn;
             }
         }
         int16_t arc = fArcWide;
 
+        if (in.jumped && fRelative) {
+            // The relative delta was measured from a position the tracker has
+            // just disowned — abort with an error rather than silently complete
+            // a move to a target derived from a lie (BEHAVIOR.md §7).
+            fFault = Fault::kJump;
+            stop();
+            return 0;
+        }
         if (in.jumped && adist > arc) {
             // The tracker corrected itself (sticker-seam burst, over-limit motion,
             // recovery) and the corrected position is OUTSIDE the arrival arc, so
@@ -212,8 +279,13 @@ class MotionController {
             // keeps resetting arrival and the hold hunts forever instead of
             // latching idle. Inside the arc, fall through and let the dwell run.
             fDwellCount = 0;
-            fProgressPos = -1;
+            fBestDist = 32767;
+            fMaxDwell = 0;
             fProgressAt = in.now;
+            fArcSign = 0;  // restart the oscillation detector for the re-plan —
+            fArcCross = 0; // pre-jump crossings came from a different geometry
+            fArcWide = tuning.fudge;
+            fSwingPeak = 0;
         }
 
         // Dwell + watchdog progress advance only on fresh accepted samples.
@@ -229,28 +301,51 @@ class MotionController {
                 // the hunt — a few good samples still outvote the odd stray one.
                 --fDwellCount;
             }
-            if (fProgressPos < 0 || circularDistance(in.position, fProgressPos) >= 1) {
-                fProgressPos = in.position;
-                fProgressAt = in.now;
+            // Watchdog "progress" = getting closer than ever before (approach)
+            // or a new high-water dwell count (arrival progressing). Mere
+            // movement is NOT progress: a wrong-polarity runaway or a sensor
+            // flicker hunt moves plenty while getting nowhere, and must time
+            // out rather than drive forever.
+            bool progressed = adist < fBestDist;
+            if (progressed)
+                fBestDist = adist;
+            if (fDwellCount > fMaxDwell) {
+                fMaxDwell = fDwellCount;
+                progressed = true;
             }
+            if (progressed)
+                fProgressAt = in.now;
         }
 
         if (fDwellCount >= tuning.dwell) {
             fArrived = true;
+            // A home arrival may legitimately rest anywhere inside the latched
+            // arc; remember that width so homeMode's "am I home?" test doesn't
+            // measure the rest point against the tight fudge and re-seek forever
+            // (the seek would just hunt, latch, and rest off-home again).
+            fHomeRestArc = fTarget == normalizeDeg(tuning.homePos) ? arc : 0;
+            // Settle delay before idle automation may resume (#DPTARGETMIN/MAX).
+            fSettleUntil = in.now + fRng(tuning.targetMinS, tuning.targetMaxS) * 1000u;
+            fSettleArmed = true;
+            stop();
+            return 0;
+        }
+        // No-progress watchdog. Checked BEFORE the in-arc return so a move
+        // whose accepted-sample stream stalls (e.g. the plausibility guard
+        // holding out a discontinuity at zero drive) faults instead of hanging
+        // in kTarget forever with busy() latched. timeoutSec 0 disables it
+        // (#DPTIMEOUT0), as documented.
+        if (fProgressAt == 0)
+            fProgressAt = in.now;
+        if (tuning.timeoutSec != 0 &&
+            in.now - fProgressAt > static_cast<uint32_t>(tuning.timeoutSec) * 1000u) {
+            fFault = Fault::kTimeout; // stuck, hunting, or tracking stalled: stop pushing
             stop();
             return 0;
         }
         if (adist <= arc)
             return 0; // inside the (adaptive) arc, waiting out the dwell —
                       // crucially NOT driving, so the sensor guard can hold station
-
-        if (fProgressAt == 0)
-            fProgressAt = in.now;
-        if (in.now - fProgressAt > static_cast<uint32_t>(tuning.timeoutSec) * 1000u) {
-            fFault = Fault::kTimeout; // dome physically stuck: stop pushing
-            stop();
-            return 0;
-        }
 
         uint8_t base = clampSpeed(fSpeedReq);
         uint8_t cap = clampSpeed(fSpeedMax);
@@ -266,28 +361,43 @@ class MotionController {
     }
 
     void tickIdleAutomation(const Inputs& in) {
-        if (!in.sensorValid || in.now - fLastManual < tuning.idleMs) {
-            fSchedAt = 0;
+        if (in.suppressAutomation || !in.sensorValid ||
+            in.now - fLastManual < tuning.idleMs) {
+            fSchedArmed = false;
             return;
+        }
+        // Post-arrival settle window (#DPTARGETMIN/MAX): let the dome rest
+        // before automation starts planning again.
+        if (fSettleArmed) {
+            if (static_cast<int32_t>(in.now - fSettleUntil) < 0) {
+                fSchedArmed = false;
+                return;
+            }
+            fSettleArmed = false;
         }
         bool wantAuto = tuning.autoMode;
+        // "Am I home?" is measured against the arc the last home arrival was
+        // GRANTED (a hunted seek legitimately rests up to the latched arc away),
+        // never tighter than fudge — otherwise a rest point at 6-18° re-seeks
+        // every few seconds forever.
+        int16_t homeTol = fHomeRestArc > tuning.fudge ? fHomeRestArc
+                                                      : static_cast<int16_t>(tuning.fudge);
         bool wantHome = tuning.homeMode &&
-                        circularDistance(in.position, tuning.homePos) > tuning.fudge;
+                        circularDistance(in.position, tuning.homePos) > homeTol;
         if (!wantAuto && !wantHome) {
-            fSchedAt = 0;
+            fSchedArmed = false;
             return;
         }
-        if (fSchedAt == 0) {
+        if (!fSchedArmed) {
             uint16_t mn = wantAuto ? tuning.autoMinS : tuning.homeMinS;
             uint16_t mx = wantAuto ? tuning.autoMaxS : tuning.homeMaxS;
             fSchedAt = in.now + fRng(mn, mx) * 1000u;
-            if (fSchedAt == 0)
-                fSchedAt = 1; // 0 is the "unscheduled" sentinel
+            fSchedArmed = true;
             return;
         }
         if (static_cast<int32_t>(in.now - fSchedAt) < 0)
             return;
-        fSchedAt = 0;
+        fSchedArmed = false;
         if (wantAuto)
             moveRandom(tuning.autoSpeed, true);
         else
@@ -331,14 +441,21 @@ class MotionController {
     uint8_t fCurSpeed = 0;
     uint8_t fDwellCount = 0;
     uint32_t fLastSample = 0;
-    int16_t fProgressPos = -1;
+    int16_t fBestDist = 32767; // smallest |dist| yet this move (watchdog watermark)
+    uint8_t fMaxDwell = 0;     // high-water dwell count this move (watchdog watermark)
     uint32_t fProgressAt = 0;
     uint32_t fLastManual = 0;
-    uint32_t fSchedAt = 0;
+    uint32_t fSchedAt = 0;     // meaningful only while fSchedArmed
+    bool fSchedArmed = false;  // an idle-automation move is scheduled at fSchedAt
+    uint32_t fSettleUntil = 0; // post-arrival settle window (meaningful when armed)
+    bool fSettleArmed = false;
     uint32_t fLastTick = 0;
-    int16_t fArcWide = 5;   // latched adaptive arc, >= tuning.fudge
+    int16_t fArcWide = 0;   // latched adaptive arc; set per-move by moveToAbsolute
     int8_t fArcSign = 0;    // last side of target the dome was on (+1/-1/0)
     uint8_t fArcCross = 0;  // times it has crossed the target this move
+    int16_t fSwingPeak = 0; // largest |dist| seen since the oscillation began
+    bool fRelative = false; // current move is a ":DPD" relative move (jump aborts)
+    int16_t fHomeRestArc = 0; // arc granted to the last HOME arrival (0 = n/a)
 };
 
 } // namespace rad

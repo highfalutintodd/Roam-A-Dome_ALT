@@ -76,6 +76,7 @@ enum class CmdId : uint8_t {
     kWcbCs,      // #DPWCBCS<0|1>
     kDedup,      // #DPDEDUP<ms>, 0 = off
     kLcdSleep,   // #DPLCDSLEEP<sec> — display backlight idle timeout, 0 = always on
+    kFudgeMax,   // #DPFUDGEMAX<deg> — adaptive-deadband ceiling
     // Sequence storage
     kSeqStore,  // #DPS<n>:<body> — arg = slot, text = body
     kSeqDelete, // #DPD<n>
@@ -83,6 +84,16 @@ enum class CmdId : uint8_t {
 };
 
 constexpr uint16_t kMaxCommandText = 256; // matches legacy sequence-length ceiling
+
+// Stored-sequence slot ceiling (#DPS/#DPD/:DPS all share it — the parser, the
+// sequencer's range check, and SeqStore must agree or a slot the parser accepts
+// gets rejected by the store, or vice versa).
+constexpr uint8_t kMaxSeqSlot = 100;
+
+// Report mode chars ("#DP<mode><pos>"): '@' off, '!' home, '$' random,
+// '%' target. Shared by the glue's reporter and the parser's echo filter — a
+// mode char the filter doesn't know would make RAD answer its own reports.
+constexpr const char* kModeChars = "@!$%";
 
 struct Command {
     CmdId id = CmdId::kNone;

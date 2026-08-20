@@ -9,6 +9,8 @@
 //  - Random bounds are inclusive; WMR (random milliseconds) exists; W0 is legal.
 #pragma once
 
+#include "Command.h"
+
 #include <cstdint>
 #include <cstring>
 
@@ -29,7 +31,9 @@ bool parseSeqStep(const char* tok, uint16_t len, SeqStep& out);
 
 class Sequencer {
   public:
-    static constexpr uint16_t kMaxScript = 256;
+    // One ceiling for the whole pipeline: a Command's text, a stored slot body,
+    // and a running script are the same line at different stages.
+    static constexpr uint16_t kMaxScript = kMaxCommandText;
     static constexpr uint8_t kMaxStepsPerTick = 8; // bound work per loop pass
 
     // Inclusive-bounds random source; injected so tests are deterministic and the
@@ -51,7 +55,7 @@ class Sequencer {
         std::memcpy(fScript, script, len + 1);
         fCursor = 0;
         fPhase = Phase::kExec;
-        fStartedAt = now;
+        (void)now;
         return true;
     }
 
@@ -62,6 +66,19 @@ class Sequencer {
 
     bool active() const { return fPhase != Phase::kIdle; }
     bool waiting() const { return fPhase == Phase::kWaiting; }
+
+    // One-shot event: a wait step began since the last call (duration in ms,
+    // wasMillis = the WM form). Lets the caller print the legacy
+    // "WAIT SECONDS: <n>" / "WAIT MILLIS: <n>" console feedback — waits are
+    // absorbed inside tick() and would otherwise be invisible.
+    bool consumeWaitStarted(uint32_t& ms, bool& wasMillis) {
+        if (!fWaitEvtPending)
+            return false;
+        fWaitEvtPending = false;
+        ms = fWaitEvtMs;
+        wasMillis = fWaitEvtMillis;
+        return true;
+    }
 
     // Validate a script without running it (used before storing #DPS slots).
     static bool validateScript(const char* script) {
@@ -154,6 +171,9 @@ class Sequencer {
         fWaitStart = now;
         fWaitDuration = ms;
         fPhase = Phase::kWaiting;
+        fWaitEvtPending = true; // surface for the console print (legacy contract)
+        fWaitEvtMs = ms;
+        fWaitEvtMillis = w.millis;
     }
 
     const char* nextToken(uint16_t& lenOut) {
@@ -178,7 +198,9 @@ class Sequencer {
     Phase fPhase = Phase::kIdle;
     uint32_t fWaitStart = 0;
     uint32_t fWaitDuration = 0;
-    uint32_t fStartedAt = 0;
+    bool fWaitEvtPending = false; // consumeWaitStarted() one-shot
+    uint32_t fWaitEvtMs = 0;
+    bool fWaitEvtMillis = false;
     SeqStep fCurrent;
 };
 

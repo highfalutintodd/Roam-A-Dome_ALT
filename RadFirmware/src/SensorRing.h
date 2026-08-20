@@ -8,46 +8,59 @@
 #pragma once
 
 #include "CircularMath.h"
+#include "Settings.h"
 
 #include <cstdint>
 
 namespace rad {
 
+// Defaults mirror RadSettings{} (one source of truth: bare-constructed rings in
+// host tests run the same numbers the device runs after applyTuning). Only the
+// three fields with #DP commands live here; fixed validation constants are
+// static members of SensorRing below.
 struct SensorTuning {
     // Bench-measured: this dome does ~41 RPM (248 deg/s) at 100% Syren output, so
     // the gate must sit well above that or full-speed moves read as "jumps".
-    uint8_t maxRpm = 60;          // #DPMAXRPM: plausibility gate
+    uint8_t maxRpm = RadSettings{}.maxRpm;         // #DPMAXRPM: plausibility gate
     // The ring (DomeSensorFirmware32.ino:22,336) sends on change plus a heartbeat
     // resend every 1000 ms when parked — the timeout must clear that cadence with
     // margin or a stationary dome flaps between VALID and STALE.
-    uint16_t staleMs = 2500;      // #DPSENSTO: no-frame timeout
-    uint8_t confirmSamples = 3;   // #DPSENSN: samples to accept a discontinuity
-    uint8_t slackDeg = 2;         // fixed gate slack
-    uint8_t jitterDeg = 3;        // pending-jump agreement window
-    // Fail-open backstop: after this many consecutive gate rejections the median
-    // is adopted (flagged as a jump) so tracking can never freeze indefinitely —
-    // e.g. sustained motion faster than #DPMAXRPM, or a long sticker-seam burst.
-    uint8_t rejectStreakLimit = 10;
-    // Parked-hold grace: once no move has been active for longer than this, the
-    // dome is mechanically incapable of moving, so onFrame() holds the last good
-    // position and refuses phantom jumps (see noteActive/onFrame). The window lets
-    // a just-finished move coast to rest before the hold engages. Also the memory
-    // window for the motor-plausibility guard: recent drive is held this long so a
-    // dome coasting after the throttle drops is not mistaken for a sensor lie.
-    uint16_t coastMs = 400;
-    // Motor-plausibility floor: degrees of movement always tolerated regardless of
-    // drive (mount slop, encoder dither, brief coast). The guard rejects a reported
-    // change larger than what the *actual commanded drive* over the elapsed time
-    // could produce, plus this floor. The failure it kills: a stable-but-wrong code
-    // (~299/304) or a ±35° coarse-arc wander arriving while the motor is commanded
-    // off — physically impossible, so a sensor lie, not motion.
-    uint8_t coastDeg = 8;
+    uint16_t staleMs = RadSettings{}.sensToMs;     // #DPSENSTO: no-frame timeout
+    uint8_t confirmSamples = RadSettings{}.sensN;  // #DPSENSN: samples to accept a discontinuity
 };
 
 class SensorRing {
   public:
     enum class State : uint8_t { kWarmup, kValid, kStale };
     static constexpr uint8_t kMedianWindow = 5;
+
+    // Fixed validation constants — deliberately NOT tunables. No #DP command
+    // sets them, so keeping them in SensorTuning only implied knobs that could
+    // not be turned (and every settings change silently reset them). Bench-derived.
+    static constexpr uint8_t kSlackDeg = 2;   // fixed gate slack
+    static constexpr uint8_t kJitterDeg = 3;  // pending-jump agreement window
+    // Fail-open backstop: after this many consecutive gate rejections the median
+    // is adopted (flagged as a jump) so tracking cannot freeze while the dome is
+    // under drive — e.g. sustained motion faster than #DPMAXRPM, or a long
+    // sticker-seam burst. NOTE: with the motor-plausibility guard armed and the
+    // held drive at 0 the backstop stays blocked (a parked dome cannot move
+    // itself, so a large persistent change is a sensor lie); genuine external
+    // motion at zero drive is held out until the next driven move re-locks
+    // tracking, and the controller's no-progress watchdog bounds any move that
+    // is waiting on a stalled sample stream (it faults instead of hanging).
+    static constexpr uint8_t kRejectStreakLimit = 10;
+    // Parked-hold grace AND the drive-memory window: once no move has been
+    // active for longer than this the parked-hold engages, and noteActive holds
+    // the strongest commanded drive for this long so a dome coasting after the
+    // throttle drops is judged against what was actually commanded during the
+    // coast, not the instantaneous zero.
+    static constexpr uint16_t kCoastMs = 400;
+    // Motor-plausibility coast floor: extra degrees tolerated while the held
+    // drive is nonzero (mount slop, inertia). Once the held drive has decayed to
+    // zero — past the coast window — the dome cannot be moving, so the floor
+    // drops away and only kSlackDeg of dither is accepted, matching the
+    // parked-hold's threshold (no blind band between the two guards).
+    static constexpr uint8_t kCoastDeg = 8;
 
     explicit SensorRing(const SensorTuning& tuning = SensorTuning{}) : fTuning(tuning) {}
 
@@ -78,7 +91,28 @@ class SensorRing {
             fLastActiveMs = nowMs;
         if (driveMagPct != kDriveUnknown) {
             fDriveArmed = true;
-            fDrivePct = driveMagPct; // magnitude of motor output commanded this loop
+            // Coast model: after the throttle drops, plausibility decays over a
+            // coast tail whose length is EARNED by how long the drive was
+            // actually on (capped at kCoastMs). A dome driven for seconds
+            // carries real momentum — its post-release tail must stay
+            // trackable; a momentary blip never spun the dome up, so it earns
+            // (almost) no tail and misreads arriving right after it are still
+            // held out. Instant-zero (the old behavior) rejected the genuine
+            // tail; a flat unearned hold would believe the misreads.
+            if (driveMagPct > 0) {
+                if (fDriveNowPct == 0) { // rising edge: new drive episode
+                    fDriveOnSinceMs = nowMs;
+                    fDrivePeakPct = 0;
+                    fDriveRiseMs = nowMs; // see adoptAllowance
+                }
+                if (driveMagPct > fDrivePeakPct)
+                    fDrivePeakPct = driveMagPct;
+            } else if (fDriveNowPct > 0) { // falling edge: begin the coast tail
+                fDriveFellAt = nowMs;
+                uint32_t on = nowMs - fDriveOnSinceMs;
+                fDriveCreditMs = on < kCoastMs ? static_cast<uint16_t>(on) : kCoastMs;
+            }
+            fDriveNowPct = driveMagPct;
         }
     }
 
@@ -176,21 +210,41 @@ class SensorRing {
     // deg/ms * 1024 to stay in integer math: rpm * 360 / 60000 * 1024
     uint32_t maxDegPerMsQ10() const { return (static_cast<uint32_t>(fTuning.maxRpm) * 360 * 1024) / 60000; }
 
-    // Motor output magnitude (0..100) commanded this loop. The plausibility guard
-    // sizes allowed movement from it: 0 while holding station in the arrival arc,
-    // full while sweeping. Gradual coast after the throttle drops is still tracked
-    // because the cap always allows coastDeg per frame (see the cap below).
-    uint8_t driveMag() const { return fDrivePct; }
+    // Effective drive for plausibility (0..100): the current commanded
+    // magnitude while driving; after release, the episode's peak decayed
+    // linearly across the EARNED coast credit (see noteActive). Zero once the
+    // dome has had time to stop.
+    uint8_t driveMag(uint32_t nowMs) const {
+        if (fDriveNowPct > 0)
+            return fDriveNowPct;
+        if (fDrivePeakPct == 0 || fDriveCreditMs == 0)
+            return 0;
+        uint32_t age = nowMs - fDriveFellAt;
+        if (age >= fDriveCreditMs)
+            return 0;
+        return static_cast<uint8_t>(static_cast<uint32_t>(fDrivePeakPct) *
+                                    (fDriveCreditMs - age) / fDriveCreditMs);
+    }
 
     // Degrees the dome could plausibly have moved from the last accepted position
     // while the current pending discontinuity has persisted, given the commanded
     // drive. A confirmed/fail-open jump beyond this is a sensor lie, not motion.
     int32_t adoptAllowance(uint32_t nowMs) const {
+        uint8_t mag = driveMag(nowMs);
         uint32_t adt = nowMs - fPendingSinceMs;
+        // A pending window accrued while the motor was OFF must not become
+        // instantly adoptable the moment drive returns: reach counts only from
+        // when the drive actually rose (plus the coast tail), not from when the
+        // reading first appeared.
+        if (mag > 0 && fDriveRiseMs != 0) {
+            uint32_t sinceRise = nowMs - fDriveRiseMs + kCoastMs;
+            if (adt > sinceRise)
+                adt = sinceRise;
+        }
         if (adt > 10000)
             adt = 10000;
         int32_t reach = static_cast<int32_t>((maxDegPerMsQ10() * adt) >> 10);
-        return reach * fDrivePct / 100 + fTuning.slackDeg + fTuning.coastDeg;
+        return reach * mag / 100 + kSlackDeg + (mag > 0 ? kCoastDeg : 0);
     }
 
     void onFrame(int16_t deg, uint32_t nowMs) {
@@ -209,8 +263,8 @@ class SensorRing {
                 int16_t a = fWindow[fWarmCount - 1];
                 int16_t b = fWindow[fWarmCount - 2];
                 int16_t c = fWindow[fWarmCount - 3];
-                if (circularDistance(a, b) <= fTuning.jitterDeg &&
-                    circularDistance(a, c) <= fTuning.jitterDeg) {
+                if (circularDistance(a, b) <= kJitterDeg &&
+                    circularDistance(a, c) <= kJitterDeg) {
                     for (uint8_t i = fWarmCount; i < kMedianWindow; ++i)
                         fWindow[i] = a;
                     fWarmCount = kMedianWindow;
@@ -219,14 +273,16 @@ class SensorRing {
                 }
             }
             if (fWarmCount == kMedianWindow || settled) {
-                fPosition = circularMedian(deg);
-                fLastAcceptMs = nowMs;
-                fLastDelta = 0;
-                if (wasStale || fEverValid) {
-                    // Recovery from stale (or re-warm) counts as a jump, not motion.
-                    fJumped = true;
-                    ++fStats.jumps;
-                }
+                int16_t p = circularMedian(deg);
+                // Recovery from stale (or re-warm) counts as a jump, not motion.
+                bool rejoin = wasStale || fEverValid;
+                // Route through accept() so stats().accepted advances: the
+                // controller's freshness gate must see the recovery sample, or
+                // a move issued right after warm-up stalls its dwell for an
+                // extra heartbeat.
+                accept(p, nowMs, /*jump=*/rejoin);
+                if (!rejoin)
+                    fLastDelta = 0; // first-ever fix: no prior position to delta from
                 fState = State::kValid;
                 fEverValid = true;
             }
@@ -249,8 +305,8 @@ class SensorRing {
         // arc is never frozen mid-arrival. Armed only after the first active period
         // (fLastActiveMs != 0), so boot-time acquisition and host tests are unaffected.
         if (!fActive && fLastActiveMs != 0 &&
-            (nowMs - fLastActiveMs) > fTuning.coastMs) {
-            if (circularDistance(med, fPosition) <= fTuning.slackDeg) {
+            (nowMs - fLastActiveMs) > kCoastMs) {
+            if (circularDistance(med, fPosition) <= kSlackDeg) {
                 accept(med, nowMs, /*jump=*/false); // genuine dither: stay in sync
             } else {
                 ++fStats.rejectedRate; // phantom move: count it, hold position
@@ -264,21 +320,26 @@ class SensorRing {
         if (dt > 10000)
             dt = 10000;
         int32_t full = static_cast<int32_t>((maxDegPerMsQ10() * dt) >> 10);
-        int32_t allowed = full + fTuning.slackDeg;
+        int32_t allowed = full + kSlackDeg;
         if (allowed > 180)
             allowed = 180;
-        // Motor-plausibility cap. When the guard is armed, a reported change can't
-        // exceed what the *actual commanded drive* over dt could produce, plus a
-        // fixed coastDeg floor for inertia/dither. While the controller holds
-        // station in the arrival arc it commands 0%, so the cap collapses to
-        // ~coastDeg — the ~299/304 alias and the ±35° coarse-arc wander (both
-        // physically impossible with the motor off) are rejected before they ever
-        // reach the controller, so it never gets kicked out of the arc and never
-        // re-pulses the motor (the self-exciting hunt). At full drive the cap
-        // exceeds the kinematic `allowed`, so fast and over-limit moves are
-        // unchanged. Gradual coast is still tracked: it stays under coastDeg/frame.
+        // Motor-plausibility cap. When the guard is armed, a reported change
+        // can't exceed what the effective drive (current command, or the recent
+        // peak decayed across kCoastMs — see driveMag) over dt could produce,
+        // plus a kCoastDeg floor while that drive is nonzero. While the
+        // controller holds station in the arrival arc the effective drive
+        // decays to 0 within the coast window, so the cap collapses to
+        // kSlackDeg — the ~299/304 alias and the ±35° coarse-arc wander (both
+        // physically impossible with the motor off) are rejected before they
+        // ever reach the controller, so it never gets kicked out of the arc
+        // and never re-pulses the motor (the self-exciting hunt). At full
+        // drive the cap exceeds the kinematic `allowed`, so fast and
+        // over-limit moves are unchanged; a just-released jog's coasting tail
+        // is still tracked because the launching drive decays rather than
+        // vanishing.
         if (fDriveArmed) {
-            int32_t plaus = (full * driveMag()) / 100 + fTuning.slackDeg + fTuning.coastDeg;
+            uint8_t mag = driveMag(nowMs);
+            int32_t plaus = (full * mag) / 100 + kSlackDeg + (mag > 0 ? kCoastDeg : 0);
             if (allowed > plaus)
                 allowed = plaus;
         }
@@ -292,9 +353,13 @@ class SensorRing {
             // Discontinuity: require N consecutive samples agreeing on the new
             // position before believing it.
             ++fStats.rejectedRate;
-            ++fRejectStreak;
-            if (fPendingCount > 0 && circularDistance(med, fPendingValue) <= fTuning.jitterDeg) {
-                ++fPendingCount;
+            if (fRejectStreak < 255)
+                ++fRejectStreak; // saturate: a long hold must not wrap the byte
+            bool agreed =
+                fPendingCount > 0 && circularDistance(med, fPendingValue) <= kJitterDeg;
+            if (agreed) {
+                if (fPendingCount < 255)
+                    ++fPendingCount;
             } else {
                 fPendingValue = med;
                 fPendingCount = 1;
@@ -311,13 +376,16 @@ class SensorRing {
             // off target. Real and over-limit motion stay plausible as time passes,
             // so genuine discontinuities are still adopted and never freeze.
             bool plausibleAdopt = !fDriveArmed || dist <= adoptAllowance(nowMs);
-            if (fPendingCount >= fTuning.confirmSamples && plausibleAdopt) {
+            // `agreed` keeps the legacy floor: even #DPSENSN1 needs a SECOND
+            // sample agreeing with the first sighting — one glitch frame alone
+            // is never believed.
+            if (agreed && fPendingCount >= fTuning.confirmSamples && plausibleAdopt) {
                 accept(med, nowMs, /*jump=*/true);
                 fPendingCount = 0;
                 fRejectStreak = 0;
                 return;
             }
-            if (fRejectStreak >= fTuning.rejectStreakLimit && plausibleAdopt) {
+            if (fRejectStreak >= kRejectStreakLimit && plausibleAdopt) {
                 // Fail-open: adopt reality rather than freeze (see tuning note).
                 accept(med, nowMs, /*jump=*/true);
                 fPendingCount = 0;
@@ -376,7 +444,12 @@ class SensorRing {
     bool fActive = false;         // a move/manual drive is active this loop (noteActive)
     uint32_t fLastActiveMs = 0;   // last time control was active; 0 = never yet
     bool fDriveArmed = false;     // glue has supplied real drive magnitudes
-    uint8_t fDrivePct = 0;        // |wire| commanded this loop, 0..100
+    uint8_t fDriveNowPct = 0;     // |wire| commanded this loop
+    uint8_t fDrivePeakPct = 0;    // peak |wire| of the current/last drive episode
+    uint32_t fDriveOnSinceMs = 0; // when the current drive episode began
+    uint32_t fDriveFellAt = 0;    // when drive last fell to 0 (coast tail anchor)
+    uint16_t fDriveCreditMs = 0;  // earned coast tail: min(episode length, kCoastMs)
+    uint32_t fDriveRiseMs = 0;    // when drive last rose from 0 (0 = never)
     Stats fStats;
 };
 

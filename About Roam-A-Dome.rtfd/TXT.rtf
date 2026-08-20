@@ -1,0 +1,105 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2870
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica-Bold;\f1\fnil\fcharset0 Tahoma-Bold;\f2\fnil\fcharset0 Tahoma;
+\f3\fnil\fcharset0 HelveticaNeue;}
+{\colortbl;\red255\green255\blue255;\red14\green14\blue14;\red244\green244\blue244;\red255\green255\blue255;
+\red14\green68\blue121;}
+{\*\expandedcolortbl;;\cssrgb\c6667\c6667\c6667;\cssrgb\c96471\c96471\c96471;\cssrgb\c100000\c100000\c100000;
+\cssrgb\c4706\c34510\c54902;}
+\margl1440\margr1440\vieww12720\viewh7800\viewkind0
+\deftab720
+\pard\pardeftab720\sa100\partightenfactor0
+
+\f0\b\fs30 \cf2 \cb3 \expnd0\expndtw0\kerning0
+Roam-A-Dome Automation\cb1 \
+\pard\pardeftab720\partightenfactor0
+
+\f1\fs28 \cf2 \cb3 \ul \ulc2 Roam-A-Dome
+\f2\b0  (Automated Dome Movement)\cb1 \ulnone \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 The Rep for the run is Olivers\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f3\fs20 \cf4 \
+\
+\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs28 \cf2 \
+\
+\cb3 \ul What is it?\cb1 \ulnone \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 Roam-A-Dome (RAD) allows you to set a home position for your dome, random seek/left right, and to send serial commands to change the position of the dome.\cb1 \
+\
+\cb3 It works with either gear or rubber wheel setups and any droid control system (Shadow/Padawan/Stealth/Kyber/etc). Supported motors are either using Syren packet serial or PWM control. The RAD controller sits between the motor controller and your droid control system (Shadow/Kyber/etc). It passes through the motor output from your droid control system to always allow for full manual control, but when the controller is idle it will allow for automated animations such as sending the dome to a home position, random seek/left right, shake head, spin head, etc.\cb1 \
+\
+\cb3 RAD controller comes in two flavors. A compact controller and an OLED controller. The function identically except for the OLED controller has a display that shows the current dome position and goes to sleep if the dome is idle.\cb1 \
+\
+\cb3 There is also an optional battery powered remote that allows you to adjust your dome settings remotely (battery not included).\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 \ul Instructions\cb1 \ulnone \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 Thanks to Lord Hotwing who has made some instructions available for the RAD. You can check them out here:\cb1 \
+\pard\pardeftab720\partightenfactor0
+{\field{\*\fldinst{HYPERLINK "https://docs.google.com/document/d/1RRb7uqHFNHw3cPLcNGx8oO4SJ0BW1ip9OcQjl9KbA9M"}}{\fldrslt \cf5 \cb3 https://docs.google.com/document/d/1...ip9OcQjl9KbA9M}}\
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 \ul What's Not Included?\cb1 \ulnone \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 No mounting bracket is provided. You can find the necessary CAD models and 3D print files to make your own bracket or modify one of the pre-made ones to fit your droid. You can find all the models here: {\field{\*\fldinst{HYPERLINK "https://github.com/reeltwo/DomeControlFirmware/tree/main/Mounts"}}{\fldrslt \cf5 https://github.com/reeltwo/DomeContr...ee/main/Mounts}}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 \ul What's Included?\cb1 \ulnone \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 Dome position encoder PCB, vinyl pattern sticker, and dome controller. There is an option for either a compact dome controller or an OLED dome controller. No mounting bracket for the position encoder is included. There are three different options for mounting brackets available with Fusion 360 files and STLs available up on Github.\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 {{\NeXTGraphic RDH-PCBs.jpg \width9600 \height12800 \appleattachmentpadding0 \appleembedtype0 \appleaqc
+}¬}\pard\pardeftab720\partightenfactor0
+\cf2 \
+\
+\cb3 \ul Example wiring\cb1 \ulnone \
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 {{\NeXTGraphic RDH-Shadow.png \width14820 \height16280 \appleattachmentpadding0 \appleembedtype0 \appleaqc
+}¬}\pard\pardeftab720\partightenfactor0
+\cf2 \
+\
+\cb3 \ul Web-Installer\cb1 \ulnone \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 Latest firmware can always be found here: {\field{\*\fldinst{HYPERLINK "https://reeltwo.github.io/RoamADome-Installer"}}{\fldrslt \cf5 https://reeltwo.github.io/RoamADome-Installer}}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 \ul Instructions\cb1 \ulnone \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 - Serial Commands: {\field{\*\fldinst{HYPERLINK "https://github.com/reeltwo/DomeControlFirmware/blob/main/README.md"}}{\fldrslt \cf5 https://github.com/reeltwo/DomeContr...main/README.md}}\cb1 \
+\cb3 - Documentation/Wiki: {\field{\*\fldinst{HYPERLINK "https://github.com/reeltwo/DomeControlFirmware/wiki"}}{\fldrslt \cf5 https://github.com/reeltwo/DomeControlFirmware/wiki}}\cb1 \
+\cb3 - Source Code Controller: [URL="https://github.com/reeltwo/DomeControlFirmware"]https://github.com/reeltwo/DomeControlFirmware[/Encoder]\cb1 \
+\cb3 - Source Code Encoder: {\field{\*\fldinst{HYPERLINK "https://github.com/reeltwo/DomeSensorFirmware32"}}{\fldrslt \cf5 https://github.com/reeltwo/DomeSensorFirmware32}}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 \ul Ordering\cb1 \ulnone \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 Please specify if you want the compact controller or the OLED controller. There will also be a choice between the compact sensor and the full-size sensor. Initially only the compact sensor is available. If your droid has no cross bracket the full-size sensor may be required.\cb1 \
+\
+\cb3 Unsoldered kits:\cb1 \
+\cb3 - OLED controller + Compact sensor: $60 + shipping\cb1 \
+\cb3 - Compact controller + Compact sensor: $50 + shipping\cb1 \
+\
+\cb3 Soldered through-hole kits (SMD soldered at factory):\cb1 \
+\cb3 - OLED controller + Compact sensor: $125 + shipping\cb1 \
+\cb3 - Compact controller + Compact sensor: $100 + shipping\cb1 \
+\
+\cb3 Out of stock for the moment:\cb1 \
+\cb3 - Optional droid remote: $50 (battery not included)\cb1 \
+\
+\cb3 Shipping (which is usually $8 for USA, $20 for Canada, or $27 for international) and any PayPal fees.\cb1 \
+\cb3 For each kit sold, I will be donating a portion to {\field{\*\fldinst{HYPERLINK "https://www.firstinspires.org/donate"}}{\fldrslt \cf5 First Robotics}}\cb1 \
+\
+\cb3 I will do my best to try and have kits on hand, ready to ship; email me to confirm availability. Kits will be shipped out every Monday.\cb1 \
+\
+\cb3 TO ORDER: email me at {\field{\*\fldinst{HYPERLINK "mailto:skelmir@skelbots.com"}}{\fldrslt \cf5 skelmir@skelbots.com}} and I will send a PayPal invoice.\cb1 \
+\
+\cb3 Please mention your Astromech.net username and your shipping address so I can give you the appropriate payment details.\cb1 \
+\cb3 No forum messages please, as they are too difficult to track.}

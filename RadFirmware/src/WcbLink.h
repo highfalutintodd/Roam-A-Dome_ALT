@@ -25,7 +25,10 @@ class WcbLink {
   public:
     struct RxLine {
         uint8_t senderId;
-        char text[190]; // mesh payload cap with checksums on is ~188
+        // WCB_Client can deliver up to 199 chars with checksums off
+        // (structCommand[200]); sizing below that silently truncated long
+        // stored-sequence commands mid-body.
+        char text[200];
     };
 
     // Returns false (and stays inactive) when disabled or no password is set.
@@ -40,16 +43,22 @@ class WcbLink {
 
     bool estopLatched() const { return fEstop; }
     void clearEstop() { fEstop = false; }
+    // ?STOP arriving on the console/command-serial transports latches here too —
+    // the mesh path latches in its own RX callback (COMMANDS.md: any transport).
+    void latchEstop() { fEstop = true; }
 
     // Outbound telemetry (all no-ops when inactive).
     void sendPosition(int16_t deg, char mode, uint32_t now); // <=1 Hz, on change
     void sendHeartbeat(uint32_t now, const char* state);     // every 10 s
     void sendFault(const char* code);                        // ensured
 
+    // Written on the ESP-NOW RX task (core 0), read by loop() (core 1):
+    // volatile so the reader always sees fresh values. Aligned 32-bit accesses
+    // are single instructions on Xtensa, so no torn reads.
     struct Stats {
-        uint32_t rx = 0;
-        uint32_t dropped = 0; // queue-full drops
-        uint32_t estops = 0;
+        volatile uint32_t rx = 0;
+        volatile uint32_t dropped = 0; // queue-full drops
+        volatile uint32_t estops = 0;
     };
     const Stats& stats() const { return fStats; }
 

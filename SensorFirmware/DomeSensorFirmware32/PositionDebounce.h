@@ -59,9 +59,12 @@ class PositionDebounce {
     // transition or dither, short enough to be invisible in motion. Raised from 4
     // to 6 after mounted testing: a rare stable-but-wrong alias (~299-304 in the
     // 195-210 arc) was persisting just long enough to clear 4 reads and cause a
-    // one-frame wrong-direction kick. 6 makes it hold 50% longer to sneak through;
-    // go to 8 if a stray one still gets by. (Fast full-speed sweeps still hold each
-    // code well past this, so it does not lag motion.)
+    // one-frame wrong-direction kick. 6 makes it hold 50% longer to sneak through.
+    // Do NOT raise this further chasing stable aliases: raw-code debouncing
+    // structurally cannot tell a stable wrong code from a parked dome — that
+    // class is owned by the RaD-side motor-plausibility guard. This layer owns
+    // transition/flicker rejection only, tuned for latency. (Fast full-speed
+    // sweeps still hold each code well past this, so it does not lag motion.)
     static constexpr uint8_t kStableReads = 6;
 
     // Resend the last good angle at least this often even when nothing changes,

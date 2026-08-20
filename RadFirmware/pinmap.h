@@ -51,6 +51,10 @@
 #define RAD_PIN_SENSOR_RX 34
 #define RAD_PIN_SYREN_IN_RX 17
 #define RAD_PIN_SYREN_OUT_TX 16
+// Reserved only: the classic ESP32 has no free UART for a command port (UART0 =
+// console, UART1 = sensor, UART2 = Syren), so the compact build has no command
+// serial — commands arrive via the USB console or the mesh, and setup() prints
+// a notice if #DPSERIALCMD is on. Pins kept for a future soft-UART option.
 #define RAD_PIN_CMD_RX 32
 #define RAD_PIN_CMD_TX 4
 

@@ -66,6 +66,8 @@ static int8_t sWirePct = 0;   // last wire-level command actually sent
 static int8_t sDirSign = 0;   // learned wire->degrees sign; 0 = not yet learned
 static bool sDirRelearn = false; // #DPDIRLEARN re-armed a one-shot polarity learn
 
+static void loopCriticalYield(); // defined after driveMotor
+
 void setup() {
     Serial.begin(115200);
 
@@ -74,12 +76,17 @@ void setup() {
     syrenSerial.begin(sSettings.syrenBaud, SERIAL_8N1, RAD_PIN_SYREN_IN_RX, RAD_PIN_SYREN_OUT_TX);
     sensorSerial.begin(sSettings.sensorBaud, SERIAL_8N1, RAD_PIN_SENSOR_RX, /*tx*/ -1);
 #ifdef RAD_HAS_CMD_SERIAL
+    // TX buffer big enough to absorb a #DPCONFIG dump: without one the core
+    // busy-blocks past the 128-byte FIFO and a dump at 9600 baud stalls loop().
+    cmdSerial.setTxBufferSize(2048);
     cmdSerial.begin(sSettings.serialBaud, SERIAL_8N1, RAD_PIN_CMD_RX, RAD_PIN_CMD_TX);
 #endif
 
     static const int kDoutPins[] = RAD_PIN_DOUT;
     sPins.begin(kDoutPins, sizeof(kDoutPins) / sizeof(kDoutPins[0]), sSettings.digitalPins);
     sExec.begin(&sSettings, &sStore, &sStats, &sSensor, &sMotion, &sSeq, &sSeqStore, &sPins);
+    sExec.setYield(&loopCriticalYield); // keep motor keepalive alive during bulk dumps
+    sExec.setRandom(&inclusiveRandom);  // :DPAR/:DPDR/:DPRR/:DPHR random forms
     sSyren.begin(syrenSerial, sSettings);
     sPwm.begin(RAD_PIN_PWM_IN, RAD_PIN_PWM_OUT, sSettings);
 #ifdef RAD_USE_DISPLAY
@@ -98,6 +105,13 @@ void setup() {
         Serial.printf("[DIR] restored: positive wire %s degrees\n",
                       sDirSign > 0 ? "increases" : "decreases");
     Serial.println("#DPCONFIG settings, #DPSTATUS state, :DPA<deg> to move.");
+#ifndef RAD_HAS_CMD_SERIAL
+    // Classic-ESP32 compact board: no free UART for the command port (UART0 =
+    // console, 1 = sensor, 2 = Syren). Say so once instead of silently
+    // accepting #DPSERIALCMD for a transport that does not exist.
+    if (sSettings.serialCmdIn)
+        Serial.println(F("[CMD] no command-serial UART on this board — commands via console/mesh only"));
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -125,8 +139,22 @@ static void driveMotor(int8_t wire, uint32_t now) {
         sPwm.drivePercent(wire);
 }
 
-// Learn drive polarity from manual motion: correlate the wire command with the
-// validated sensor delta. ±10 degrees of consistent evidence locks it in.
+// Keep the loop-critical outputs alive while a bulk reply (#DPCONFIG, #DPL)
+// waits for TX room on a slow port: drain sensor frames and keep re-sending the
+// Syren keepalive so its serial-timeout never cuts the motor mid-move.
+static void loopCriticalYield() {
+    uint32_t now = millis();
+    while (sensorSerial.available() > 0)
+        sSensor.feed(static_cast<uint8_t>(sensorSerial.read()), now);
+    sSensor.tick(now);
+    driveMotor(sWirePct, now); // re-sends every 60 ms even when unchanged
+}
+
+// Learn drive polarity from MANUAL motion only: correlate the wire command with
+// the validated sensor delta. ±10 degrees of consistent evidence locks it in.
+// Automation output must never feed the learner — a closed-loop move running on
+// a wrong #DPINVERT guess produces exactly the consistent wrong-way motion that
+// would teach (and then freeze) the wrong sign.
 //
 // Learning is a ONE-TIME event, never a running background process. Drive
 // polarity is physical wiring — it cannot change while the droid is powered — so
@@ -142,7 +170,7 @@ static void driveMotor(int8_t wire, uint32_t now) {
 // full speed until the next flip yanked it back: the "flip out". Freezing the
 // sign once known removes that feedback path entirely; the electrical noise is a
 // separate, physical fix.
-static void learnPolarity(uint32_t now) {
+static void learnPolarity(uint32_t now, bool manualActive) {
     static uint32_t sLastAccepted = 0;
     static uint32_t sLastJumps = 0;
     static int32_t sAccum = 0;
@@ -158,6 +186,12 @@ static void learnPolarity(uint32_t now) {
 
     // Locked once known — this is the fix for the runtime sign-flip runaway.
     if (sDirSign != 0)
+        return;
+
+    // Manual drive only (see the header comment): while automation is the one
+    // moving the dome, the learner stays mute rather than integrating evidence
+    // from a possibly wrong-signed closed loop.
+    if (!manualActive)
         return;
 
     // The dome coasts the old way for a moment after every stick reversal, which
@@ -205,12 +239,19 @@ static void learnPolarity(uint32_t now) {
     }
 }
 
-// Current report mode char: '@' off, '!' home-seek, '$' random, '%' target.
+// Current report mode char (the kModeChars set): '@' off, '!' home mode,
+// '$' random automation, '%' targeted move. Legacy semantics: this is the
+// ENGAGED MODE, not the transient controller state — an auto-mode move in
+// flight is still "random automation" ('$'), and homeMode parked at home is
+// still "home mode" ('!'); '%' means an explicit targeted move with no
+// self-running mode engaged.
 static char modeChar() {
-    if (sMotion.state() == MotionController::State::kTarget)
-        return sMotion.target() == sMotion.tuning.homePos ? '!' : '%';
     if (sMotion.tuning.autoMode)
         return '$';
+    if (sMotion.tuning.homeMode)
+        return '!';
+    if (sMotion.state() == MotionController::State::kTarget)
+        return '%';
     return '@';
 }
 
@@ -220,12 +261,21 @@ static void reportPosition() {
     static int16_t sLastReported = -1;
     if (!sSensor.valid())
         return;
-    int16_t pos = sSensor.position();
+    // Home-RELATIVE, matching the legacy client contract (§6 "unchanged in
+    // v2"; legacy fed this line from getHomeRelativeDomePosition): parked at
+    // home reports 0, not the raw sensor angle.
+    int16_t pos = normalizeDeg(sSensor.position() - sSettings.homePos);
     if (pos == sLastReported)
         return;
-    sLastReported = pos;
     char buf[16];
     snprintf(buf, sizeof(buf), "#DP%c%d", modeChar(), pos);
+    // Coalesce under backpressure: full-speed rotation produces more report
+    // than a 9600-baud line can carry, and blocking here would throttle the
+    // control loop. Skipping WITHOUT updating sLastReported re-sends the
+    // latest position as soon as the buffer drains.
+    if (cmdSerial.availableForWrite() < static_cast<int>(strlen(buf)) + 2)
+        return;
+    sLastReported = pos;
     cmdSerial.println(buf);
 #endif
 }
@@ -243,18 +293,35 @@ static void reportConsole(uint32_t now) {
             sNext = now + sSettings.reportMs; // fell behind: resync, don't burst
         if (sSensor.valid()) {
             Serial.print(F("DOME POSITION: "));
-            Serial.println(sSensor.position());
+            // Home-relative, like the command-serial report (legacy contract).
+            Serial.println(normalizeDeg(sSensor.position() - sSettings.homePos));
         } else {
             Serial.println(F("DOME POSITION: ---"));
         }
     }
 }
 
-// Ingress helper: an explicit new :DP command releases the e-stop latch
-// (BEHAVIOR.md §5) before it executes.
+// Ingress helper: ?STOP latches the e-stop from any transport; an explicit,
+// VALID new :DP motion command releases it (BEHAVIOR.md §5) before executing.
 static void handleCommandLine(const char* line, Print& reply) {
-    if (line[0] == ':' && line[1] == 'D' && line[2] == 'P')
-        gWcb.clearEstop();
+    // The mesh transport latches ?STOP in its RX callback (WcbLink::onCommand);
+    // console and command-serial lines land here. COMMANDS.md: "?STOP from any
+    // transport ... latches an emergency stop."
+    if (strncmp(line, "?STOP", 5) == 0) {
+        gWcb.latchEstop();
+        reply.println(F("ESTOP"));
+        return;
+    }
+    // Release only on a line that actually parses as a motion command AND
+    // validates: garbage answered "Invalid" (":DPQ7#", bare ":DP") must never
+    // release a safety latch. (The line is re-parsed by handleLine below —
+    // a few microseconds, and it keeps the release decision in one place.)
+    if (line[0] == ':' && line[1] == 'D' && line[2] == 'P') {
+        Command cmd;
+        if (parseLine(line, cmd) == ParseStatus::kOk && cmd.id == CmdId::kMotion &&
+            Sequencer::validateScript(cmd.text))
+            gWcb.clearEstop();
+    }
 
     // #DPDIRLEARN: forget the learned drive polarity and re-derive it from the
     // next manual jog. Polarity is otherwise frozen for life once known (see
@@ -279,7 +346,7 @@ void loop() {
     uint32_t now = millis();
 
     // --- inputs ---------------------------------------------------------------
-    sSyren.pump(now); // decodes frames; raw passthrough only if #DPSERIALIN1
+    sSyren.pump(now); // decode manual input (#DPSERIALIN1); non-motor frames forwarded
     while (sensorSerial.available() > 0)
         sSensor.feed(static_cast<uint8_t>(sensorSerial.read()), now);
     sSensor.tick(now);
@@ -342,6 +409,20 @@ void loop() {
         }
     }
 
+    // #DPAUTORESTART0: manual input DISARMS the self-running modes outright
+    // (until re-enabled) instead of merely pausing them for #DPIDLE.
+    {
+        static bool sWasManual = false;
+        if (manualActive && !sWasManual && !sSettings.autoRestart &&
+            (sSettings.autoMode || sSettings.homeMode)) {
+            sSettings.autoMode = false;
+            sSettings.homeMode = false;
+            sExec.applyTuning();
+            Serial.println(F("AUTOMATION OFF (manual override, #DPAUTORESTART0)"));
+        }
+        sWasManual = manualActive;
+    }
+
     sExec.pump(now, manualActive, Serial);
 
     MotionController::Inputs in;
@@ -352,7 +433,21 @@ void loop() {
     in.jumped = sSensor.consumeJump();
     in.manualActive = manualActive;
     in.estop = estop;
+    in.suppressAutomation = sSeq.active(); // no idle automation mid-sequence (W steps)
     int8_t autoPct = sMotion.tick(in);
+
+    // Mesh fault telemetry: BEHAVIOR §6 promises &RAD,FAULT on faults — motion
+    // faults included, not just SENSOR_STALE. Watch transitions right after
+    // tick() (pump() clears consumed faults next loop).
+    {
+        static MotionController::Fault sLastFault = MotionController::Fault::kNone;
+        MotionController::Fault f = sMotion.fault();
+        if (f != sLastFault && f != MotionController::Fault::kNone)
+            gWcb.sendFault(f == MotionController::Fault::kTimeout      ? "TIMEOUT"
+                           : f == MotionController::Fault::kSensorLost ? "SENSOR_LOST"
+                                                                       : "JUMP");
+        sLastFault = f;
+    }
 
     // Manual always wins; automation output is only used when manual is neutral.
     int8_t wire;
@@ -381,7 +476,7 @@ void loop() {
     // kick the controller back out of the arc and restart the motor-pulse hunt.
     uint8_t driveMag = static_cast<uint8_t>(wire < 0 ? -wire : wire);
     sSensor.noteActive(controlActive, now, driveMag);
-    learnPolarity(now);
+    learnPolarity(now, manualActive);
 
     // --- telemetry ------------------------------------------------------------
     // Live console debug (#DPDEBUG1), ~4 Hz.

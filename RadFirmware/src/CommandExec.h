@@ -58,10 +58,23 @@ class CommandExec {
     // Push settings values into MotionController tuning + SensorRing tuning.
     void applyTuning();
 
+    // Pumped while a bulk reply (#DPCONFIG, #DPL) waits for TX room, so the
+    // control loop's critical work (Syren keepalive, sensor drain) keeps
+    // running instead of blocking behind a slow serial port.
+    using YieldFn = void (*)();
+    void setYield(YieldFn f) { fYield = f; }
+
+    // Random source for the R-forms (:DPAR/:DPDR/:DPRR/:DPHR); inclusive bounds.
+    using RandomFn = MotionController::RandomFn;
+    void setRandom(RandomFn f) { fRng = f; }
+
   private:
     void execStep(const SeqStep& step, uint32_t now, Print& reply);
     void dumpConfig(Print& reply) const;
+    void dumpLine(Print& reply, const char* fmt, ...) const;
     void setSetting(const Command& cmd, Print& reply);
+    void tickHomeCapture(uint32_t now, Print& fallback);
+    uint32_t rng(uint32_t lo, uint32_t hi) const { return fRng != nullptr ? fRng(lo, hi) : lo; }
 
     RadSettings* fSettings = nullptr;
     RadSettingsStore* fStore = nullptr;
@@ -71,6 +84,17 @@ class CommandExec {
     Sequencer* fSeq = nullptr;
     SeqStore* fSeqStore = nullptr;
     PinBank* fPins = nullptr;
+    YieldFn fYield = nullptr;
+    RandomFn fRng = nullptr;
+    bool fModeOffAfterMove = false; // 'M' one-shot: modes off when the move arrives
+    // Bare #DPHOMEPOS: 1 s averaging capture (BEHAVIOR D4), completed in pump().
+    bool fHomeCapArmed = false;
+    uint32_t fHomeCapUntil = 0;
+    uint32_t fHomeCapLastSample = 0;
+    int16_t fHomeCapBase = 0;
+    int32_t fHomeCapSum = 0;
+    uint16_t fHomeCapCount = 0;
+    Print* fHomeCapReply = nullptr; // the port that asked (global streams only)
 };
 
 } // namespace rad

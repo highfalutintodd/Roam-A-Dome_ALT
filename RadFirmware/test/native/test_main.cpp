@@ -330,3 +330,41 @@ TEST(display_sleep_survives_millis_rollover) {
 int main() {
     return radtest::runAll();
 }
+
+// ---- regression tests for the 2026-08 code-review fixes --------------------
+
+TEST(dedup_ring_survives_interleaved_lines) {
+    // One slot used to be evicted by ANY line between a command's mesh and
+    // serial twins — the next command, or RAD's own report echo — so the twin
+    // re-executed (a relative move ran twice). The ring must hold both.
+    DedupFilter d;
+    CHECK(d.allow(":DPD45", DedupFilter::kSourceMesh, 1000, 750));
+    CHECK(d.allow(":DPH", DedupFilter::kSourceMesh, 1010, 750));
+    CHECK(!d.allow(":DPD45", DedupFilter::kSourceSerial, 1030, 750));
+    CHECK(!d.allow(":DPH", DedupFilter::kSourceSerial, 1040, 750));
+    // Unrelated chatter between twins must not break suppression either.
+    CHECK(d.allow(":DPA90", DedupFilter::kSourceMesh, 2000, 750));
+    CHECK(d.allow("#DP@123", DedupFilter::kSourceMesh, 2010, 750));
+    CHECK(!d.allow(":DPA90", DedupFilter::kSourceSerial, 2040, 750));
+    // Same-source repeats still always run (operator mashing).
+    CHECK(d.allow(":DPX", DedupFilter::kSourceMesh, 3000, 750));
+    CHECK(d.allow(":DPX", DedupFilter::kSourceMesh, 3010, 750));
+}
+
+TEST(parser_ignores_own_dump_echoes) {
+    // #DPCONFIG / #DPL output reflected back over the mesh must parse as
+    // silent kUnknown — never "Invalid" spam, never a re-executed store.
+    Command c;
+    CHECK(parseLine("#DPMAXSPEED=100", c) == ParseStatus::kUnknown);
+    CHECK(parseLine("#DPWCBOCT=3C,4E", c) == ParseStatus::kUnknown);
+    CHECK(parseLine("#DPPIN=11", c) == ParseStatus::kUnknown);
+    CHECK(parseLine("#DPS40=:A90:W2:H", c) == ParseStatus::kUnknown);
+    // Real commands still parse — including a password containing '='.
+    CHECK(parseLine("#DPFUDGEMAX20", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kFudgeMax && c.arg == 20);
+    CHECK(parseLine("#DPWCBPWab=cd", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kWcbPw);
+    CHECK(std::strcmp(c.text, "ab=cd") == 0);
+    CHECK(parseLine("#DPS40:A90", c) == ParseStatus::kOk);
+    CHECK(c.id == CmdId::kSeqStore);
+}

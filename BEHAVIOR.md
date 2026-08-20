@@ -25,7 +25,7 @@ only when the manual input has been idle. Dome position comes from the sensor ri
 | Transport | Direction | Notes |
 |---|---|---|
 | USB console serial | in/out | commands + human-readable responses |
-| Command serial (`#DPSERIALBAUD`, default 9600) | in/out | same grammar; position reports out (§6) |
+| Command serial (`#DPSERIALBAUD`, default 9600) | in/out | same grammar; position reports out (§6). Display board only — the compact classic-ESP32 has no spare UART, so commands there arrive via the USB console or mesh. |
 | WCB mesh (**new in v2**) | in/out | same grammar via WCBClient; `?STOP` e-stop; `&RAD,…` reports |
 | Syren packet serial in → out | passthrough | 4-byte frames `[addr][cmd][data][(addr+cmd+data)&0x7F]`, in-addr/out-addr configurable (default 129) |
 | PWM in → out | passthrough | RC pulse 800–2200 µs, neutral 1500, deadband % |

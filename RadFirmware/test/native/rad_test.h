@@ -1,6 +1,8 @@
 // Minimal host-side test harness (no external deps).
 #pragma once
 
+#include "../../src/SensorRing.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -61,6 +63,21 @@ inline int runAll() {
     else
         std::printf("FAILED: %d check(s) failed across %zu tests\n", gFailures, registry().size());
     return gFailures == 0 ? 0 : 1;
+}
+
+// Shared helpers: the sensor wire format ("#DP@<deg>\r\n") and the default
+// deterministic RNG were previously copy-pasted per test file, so a format
+// change could silently leave one suite testing a stale path.
+inline uint32_t midRng(uint32_t lo, uint32_t hi) {
+    return (lo + hi) / 2;
+}
+
+inline void feedFrame(rad::SensorRing& sr, int deg, uint32_t now) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "#DP@%d\r\n", deg);
+    for (const char* p = buf; *p; ++p)
+        sr.feed(static_cast<uint8_t>(*p), now);
+    sr.tick(now);
 }
 
 } // namespace radtest

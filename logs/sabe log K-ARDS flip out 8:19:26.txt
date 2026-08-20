@@ -1,0 +1,77 @@
+[ACTION] slot 29: send(";C19") -> OK
+[MESH][RX] from WCB1: #DPAUTO0
+[MESH][RX] from WCB1: :DPA323,50
+[MESH][RX] from WCB1: <CA1011>
+[MESH][RX] from WCB4: &RAD,HB,2.0.0,1320,SEQ
+[MESH][RX] from WCB4: &RAD,POS,170,%
+[MESH][RX] from WCB4: &RAD,POS,214,%
+[MESH][RX] from WCB4: &RAD,POS,211,%
+[MESH][RX] from WCB4: &RAD,POS,304,%
+[STATUS] uptime=1075s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=53720/53us  loopMax=2ms
+[MESH][RX] from WCB4: &RAD,POS,215,%
+[MESH][RX] from WCB4: &RAD,POS,218,%
+[MESH][RX] from WCB4: &RAD,POS,211,%
+[MESH][RX] from WCB4: &RAD,POS,223,%
+[MESH][RX] from WCB4: &RAD,POS,219,%
+[STATUS] uptime=1080s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=53970/45us  loopMax=2ms
+[MESH][RX] from WCB4: &RAD,POS,194,%
+[BATT] drive remote: 3317 mV on the radio's Vcc pin (LDO rail — flat 3300 until the cell is nearly done, then it sags)
+[MESH][RX] from WCB1: {"ok":true,"t":"vstats","v":25.86,"i":-1.85,"p":-47.8,"soc":38.1,"ttg":221,"ah":-18.9,"aux":null,"temp":null,"alarms":[],"age":74362,"stale":true}
+[MESH][RX] from WCB4: &RAD,HB,2.0.0,1330,SEQ
+[MESH][RX] from WCB4: &RAD,POS,218,%
+[MESH][RX] from WCB4: &RAD,POS,220,%
+[MESH][RX] from WCB4: &RAD,POS,213,%
+[MESH][RX] from WCB4: &RAD,POS,210,%
+[STATUS] uptime=1085s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=54220/44us  loopMax=2ms
+[MESH][RX] from WCB4: &RAD,POS,190,%
+[MESH][RX] from WCB4: &RAD,POS,239,%
+[MESH][RX] from WCB4: &RAD,POS,168,%
+[MESH][RX] from WCB4: &RAD,POS,213,%
+[MESH][RX] from WCB4: &RAD,POS,168,%
+[STATUS] uptime=1090s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=54470/46us  loopMax=2ms
+[MESH][RX] from WCB4: &RAD,POS,167,%
+[MESH][RX] from WCB4: &RAD,HB,2.0.0,1340,SEQ
+[MESH][RX] from WCB4: &RAD,POS,194,%
+[MESH][RX] from WCB4: &RAD,POS,193,%
+[DROIDNET][TX] &SABE,HB,0.41.1-reviewfix,1093,OPERATIONAL,76,5
+[MESH][RX] from WCB4: &RAD,POS,175,%
+[MESH][RX] from WCB4: &RAD,POS,214,%
+[STATUS] uptime=1095s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=54720/52us  loopMax=2ms
+[MESH][RX] from WCB4: &RAD,POS,304,%
+[MESH][RX] from WCB4: &RAD,POS,190,%
+[MESH][RX] from WCB4: &RAD,POS,193,%
+[MESH][RX] from WCB4: &RAD,POS,194,%
+[MESH][RX] from WCB4: &RAD,POS,211,%
+[STATUS] uptime=1100s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=54970/53us  loopMax=2ms
+[MESH][RX] from WCB4: &RAD,POS,299,%
+[MESH][RX] from WCB4: &RAD,HB,2.0.0,1350,SEQ
+[MESH][RX] from WCB4: &RAD,POS,210,%
+[MESH][RX] from WCB4: &RAD,POS,299,%
+[MESH][RX] from WCB4: &RAD,POS,219,%
+[MESH][RX] from WCB4: &RAD,POS,208,%
+[STATUS] uptime=1105s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=55220/45us  loopMax=2ms
+[MESH][RX] from WCB4: &RAD,POS,207,%
+[MESH][RX] from WCB4: &RAD,POS,204,@
+[STATUS] uptime=1110s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=55470/45us  loopMax=2ms
+[BATT] dome remote: 3317 mV on the radio's Vcc pin (LDO rail — flat 3300 until the cell is nearly done, then it sags)
+[MESH][RX] from WCB4: &RAD,HB,2.0.0,1360,IDLE
+[STATUS] uptime=1115s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=55720/45us  loopMax=2ms
+[STATUS] uptime=1120s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=55970/54us  loopMax=2ms
+[MESH][RX] from WCB4: &RAD,HB,2.0.0,1370,IDLE
+[DROIDNET][TX] &SABE,HB,0.41.1-reviewfix,1123,OPERATIONAL,76,4
+[STATUS] uptime=1125s  safety=OPERATIONAL  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=56220/32us  loopMax=1ms
+[BTN] dome remote link lost (2010ms) — standing it down
+[BTN] dome remote -> STANDBY (via link-loss)
+[CUE] standby -> <SS0>
+[DROIDNET][TX] &SABE,STATE,FAILSAFE_WARN,0.50
+[SAFETY] degraded → FAILSAFE_WARN (speed limited)
+[DROIDNET][TX] &SABE,STATE,EMERGENCY_STOP,0.00
+[DROIDNET][TX] &SABE,ESTOP,signal-lost
+[DROIDNET][TX] ?STOP (halt WCB choreography; bcast + ensured/WCB)
+[SAFETY] *** EMERGENCY STOP *** reason: signal lost
+[BTN] drive remote -> STANDBY (drive disarmed: EMERGENCY_STOP)
+[CUE] estop -> <SC1>
+[STATUS] uptime=1130s  safety=EMERGENCY_STOP  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=56470/36us  loopMax=1ms
+[MESH][RX] from WCB4: &RAD,HB,2.0.0,1380,ESTOP
+[STATUS] uptime=1135s  safety=EMERGENCY_STOP  meshAnyOnline=yes  heap=176068  cfg=v15  ctrl=56720/43us  loopMax=1ms
+[Disconnected]

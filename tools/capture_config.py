@@ -95,6 +95,10 @@ def replay(s, config_file: pathlib.Path) -> None:
     v2's #DPCONFIG emits replayable `#DPKEY=VALUE` lines; legacy output is `Key=Value`
     and needs hand-translation first (see BEHAVIOR.md D6). Lines not starting with #DP
     are skipped with a warning so a legacy capture fails loudly, not silently.
+
+    sequences.txt (v2's #DPL capture) replays the same way: its `#DPS<n>=:<body>`
+    lines become executable `#DPS<n>:<body>` stores once the first '=' is stripped
+    (the '=' keeps RAD's own mesh echo of the listing from re-storing every slot).
     """
     skipped = 0
     for line in config_file.read_text().splitlines():

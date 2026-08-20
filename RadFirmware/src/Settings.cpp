@@ -6,13 +6,18 @@
 
 namespace rad {
 namespace {
-constexpr const char* kNamespace = "rad";
+constexpr const char* kNamespace = kNvsNamespace; // shared with PolarityStore
 constexpr const char* kBlobKey = "settings";
 
 struct Header {
     uint16_t version;
     uint16_t size;
 };
+
+// v3 layout = the v4 prefix: v4 only extended wcbPassword (33 -> 40) at the
+// tail and appended fudgeMax, so every v3 field keeps its offset and a prefix
+// copy migrates it (see the MIGRATION RULE in Settings.h). New bytes keep their
+// defaults from the fresh RadSettings{}.
 } // namespace
 
 bool RadSettingsStore::load(RadSettings& out) {
@@ -22,16 +27,22 @@ bool RadSettingsStore::load(RadSettings& out) {
         return false;
     size_t len = prefs.getBytesLength(kBlobKey);
     bool ok = false;
-    if (len == sizeof(Header) + sizeof(RadSettings)) {
+    if (len >= sizeof(Header) && len <= sizeof(Header) + sizeof(RadSettings)) {
         uint8_t buf[sizeof(Header) + sizeof(RadSettings)];
-        prefs.getBytes(kBlobKey, buf, sizeof(buf));
+        prefs.getBytes(kBlobKey, buf, len);
         Header hdr;
         memcpy(&hdr, buf, sizeof(hdr));
-        if (hdr.version == kSettingsVersion && hdr.size == sizeof(RadSettings)) {
+        if (hdr.version == kSettingsVersion && hdr.size == sizeof(RadSettings) &&
+            len == sizeof(Header) + sizeof(RadSettings)) {
             memcpy(&out, buf + sizeof(Header), sizeof(RadSettings));
             ok = true;
+        } else if (hdr.version == 3 && hdr.size == len - sizeof(Header) &&
+                   hdr.size < sizeof(RadSettings)) {
+            // v3 -> v4 prefix migration (D8: never silently wipe on upgrade).
+            memcpy(&out, buf + sizeof(Header), hdr.size);
+            out.wcbPassword[sizeof(out.wcbPassword) - 1] = '\0';
+            ok = true;
         }
-        // Older known versions get field-wise migration here as the schema grows.
     }
     prefs.end();
 

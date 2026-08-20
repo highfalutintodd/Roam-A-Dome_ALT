@@ -100,6 +100,14 @@ bool parseSeqStep(const char* tok, uint16_t len, SeqStep& out) {
         }
         if (!readArgTail(&p, end, out))
             return false;
+        // Range-check here, at parse time, so both direct :DP lines and stored
+        // sequences reject out-of-range values with "Invalid" instead of the
+        // exec stage silently narrowing them (a negative speed used to wrap
+        // through uint8 to near-255 and run at FULL speed).
+        if (!out.random && (out.a < -359 || out.a > 359))
+            return false; // one revolution max; larger values silently wrapped
+        if (out.b < 0 || out.b > 100 || out.c < 0 || out.c > 100)
+            return false; // speed/maxspeed are percentages
         if (p < end && *p == '+') {
             out.fireAndForget = true;
             ++p;
@@ -133,13 +141,19 @@ bool parseSeqStep(const char* tok, uint16_t len, SeqStep& out) {
             if (!readInt(&p, end, out.a))
                 return false;
             ++out.argc;
+            if (out.a < 0 || out.a > 100)
+                return false; // speed percentage
         }
         return p == end;
     }
-    case 'S': // S<n> — play stored sequence (caller swaps scripts)
-    case 'T': // T<pin>
+    case 'S': // S<n> — play stored sequence, slot 0-100 (caller swaps scripts)
+    case 'T': // T<pin>, pin 1-8
     {
         if (!readInt(&p, end, out.a) || out.a < 0)
+            return false;
+        // Reject out-of-range slots/pins at parse time: the exec stage casts to
+        // uint8, so S300 used to alias onto real slot 44 and play it.
+        if (out.op == 'S' ? out.a > kMaxSeqSlot : (out.a < 1 || out.a > 8))
             return false;
         ++out.argc;
         return p == end;

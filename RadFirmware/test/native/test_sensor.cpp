@@ -12,11 +12,7 @@ namespace {
 
 // Feed a complete "#DP@<deg>\r\n" frame at time `now`.
 void frame(SensorRing& sr, int deg, uint32_t now) {
-    char buf[16];
-    std::snprintf(buf, sizeof(buf), "#DP@%d\r\n", deg);
-    for (const char* p = buf; *p; ++p)
-        sr.feed(static_cast<uint8_t>(*p), now);
-    sr.tick(now);
+    radtest::feedFrame(sr, deg, now); // shared: one copy of the wire format
 }
 
 void feedRaw(SensorRing& sr, const char* s, uint32_t now) {
@@ -238,7 +234,9 @@ TEST(sensor_active_move_is_never_frozen) {
     SensorRing sr = warmedUp(203, &now);
     uint32_t acceptedBefore = sr.stats().accepted;
     for (int i = 0; i < 12; ++i, now += kDt) {
-        sr.noteActive(true, now);          // move still in progress (well past coast)
+        // ARMED, drive 0 — the exact shipped configuration while a move holds
+        // station in its arrival arc (the glue always supplies |wire|).
+        sr.noteActive(true, now, /*driveMagPct=*/0);
         frame(sr, (i % 2) ? 205 : 201, now); // small in-arc dither around target
     }
     CHECK(sr.stats().accepted > acceptedBefore); // frames keep flowing, not frozen
@@ -429,4 +427,62 @@ TEST(sensor_relative_deltas_accumulate_only_validated_motion) {
     now += kDt;
     accum += sr.lastDelta();
     CHECK(accum >= 16 && accum <= 22); // ~20 degrees of real motion, no glitch spike
+}
+
+TEST(sensor_warmup_counts_as_accepted_sample) {
+    // Warm-up completion must advance stats().accepted: the controller's
+    // freshness gate keys on it, and a move issued right after warm-up used to
+    // stall its dwell for an extra heartbeat because the recovery sample was
+    // invisible.
+    uint32_t now;
+    SensorRing sr = warmedUp(120, &now);
+    CHECK(sr.valid());
+    CHECK(sr.stats().accepted >= 1);
+}
+
+TEST(sensor_confirm_one_still_needs_agreement) {
+    // #DPSENSN1 must not adopt a discontinuity on its FIRST sighting — legacy
+    // required a second agreeing sample even at N=1, and a single glitch frame
+    // that survives the median used to teleport the tracker.
+    SensorTuning t;
+    t.confirmSamples = 1;
+    uint32_t now;
+    SensorRing sr = warmedUp(100, &now);
+    sr.setTuning(t);
+    (void)sr.consumeJump();
+    // One outlier reading: pending, not adopted.
+    for (int i = 0; i < 3; ++i, now += kDt)
+        frame(sr, 200, now); // median needs a few frames to move
+    // The first median flip to ~200 is sighting #1; position may not move yet.
+    bool jumped = sr.consumeJump();
+    // Feed more agreeing frames: the second agreeing median adopts it.
+    for (int i = 0; i < 3 && !jumped; ++i, now += kDt) {
+        frame(sr, 200, now);
+        jumped = sr.consumeJump();
+    }
+    CHECK(jumped);
+    CHECK(circularDistance(sr.position(), 200) <= 3);
+}
+
+TEST(sensor_earned_coast_tracks_jog_tail) {
+    // A real jog (sustained drive) earns a coast tail: frames resuming shortly
+    // after release, a modest distance ahead, are genuine coasting motion and
+    // must be tracked — the old instantaneous-drive model rejected them and
+    // the parked hold then latched the pre-jog position.
+    uint32_t now;
+    SensorRing sr = warmedUp(100, &now);
+    // Sustained drive episode: frames flow for the first ~300 ms, then the
+    // ring's debounce goes quiet during the fast part of the sweep (no frames,
+    // drive still commanded).
+    for (int i = 0; i < 15; ++i, now += kDt)
+        frameDriven(sr, 100 + i / 5, now, /*driveMag=*/60);
+    for (int i = 0; i < 15; ++i, now += kDt)
+        sr.noteActive(true, now, /*driveMagPct=*/60); // driving, ring silent
+    // Release; the ring resumes ~26 deg ahead, inside the earned coast tail.
+    // (The 5-wide median lags a few frames, and the pending-confirm window
+    // needs the allowance to cover the step — a dozen frames, ~250 ms, still
+    // well inside the earned 400 ms tail.)
+    for (int i = 0; i < 14; ++i, now += kDt)
+        frameDriven(sr, 128, now, /*driveMag=*/0);
+    CHECK(circularDistance(sr.position(), 128) <= 6); // tail tracked, not held out
 }

@@ -51,6 +51,7 @@ constexpr ConfigDef kConfigTable[] = {
     {"TARGETSPEED", ArgKind::kInt, CmdId::kTargetSpeed},
     {"INPUTSPEED", ArgKind::kInt, CmdId::kInputSpeed},
     {"FUDGE", ArgKind::kInt, CmdId::kFudge},
+    {"FUDGEMAX", ArgKind::kInt, CmdId::kFudgeMax},
     {"SCALE", ArgKind::kInt, CmdId::kScale},
     {"ASCALE", ArgKind::kInt, CmdId::kAScale},
     {"DSCALE", ArgKind::kInt, CmdId::kDScale},
@@ -104,10 +105,10 @@ bool parseIntArg(const char* text, int32_t& value, bool required) {
 }
 
 ParseStatus parseConfig(const char* body, Command& out) {
-    // Position-report echoes ("#DP@123" etc. — mode chars @ ! $ %). The dome WCB
+    // Position-report echoes ("#DP@123" etc. — the kModeChars set). The dome WCB
     // port has serial-in broadcast enabled, so RAD's own reports can come back
     // at it over the mesh; they must be ignored silently, never answered.
-    if (*body == '@' || *body == '!' || *body == '$' || *body == '%')
+    if (*body != '\0' && std::strchr(kModeChars, *body) != nullptr)
         return ParseStatus::kUnknown;
 
     // Sequence store: #DPS<n>:<body>. Special-cased because the body is free text
@@ -115,7 +116,9 @@ ParseStatus parseConfig(const char* body, Command& out) {
     if (body[0] == 'S' && body[1] >= '0' && body[1] <= '9') {
         const char* p = body + 1;
         long slot = std::strtol(p, const_cast<char**>(&p), 10);
-        if (slot < 0 || slot > 100 || *p != ':')
+        if (*p == '=')
+            return ParseStatus::kUnknown; // echo of our own #DPL listing line
+        if (slot < 0 || slot > kMaxSeqSlot || *p != ':')
             return ParseStatus::kInvalid;
         ++p;
         size_t len = std::strlen(p);
@@ -136,12 +139,14 @@ ParseStatus parseConfig(const char* body, Command& out) {
         out.hasArg = true;
         return ParseStatus::kOk;
     }
+    if (std::strncmp(body, "PIN", 3) == 0 && body[3] == '=')
+        return ParseStatus::kUnknown; // echo of our own #DPCONFIG dump line
 
     // Sequence delete: #DPD<n> (all digits to end of line).
     if (body[0] == 'D' && body[1] >= '0' && body[1] <= '9') {
         const char* p = body + 1;
         long slot = std::strtol(p, const_cast<char**>(&p), 10);
-        if (*p != '\0' || slot < 0 || slot > 100)
+        if (*p != '\0' || slot < 0 || slot > kMaxSeqSlot)
             return ParseStatus::kInvalid;
         out.id = CmdId::kSeqDelete;
         out.arg = static_cast<int32_t>(slot);
@@ -162,6 +167,12 @@ ParseStatus parseConfig(const char* body, Command& out) {
         return ParseStatus::kInvalid;
 
     const char* args = body + bestLen;
+    // "#DPKEY=VALUE" is the #DPCONFIG dump format, not a command: seeing one
+    // here means RAD's own dump reflected back over the mesh (the WCB
+    // broadcasts our serial output). Silence, never "Invalid" — a full config
+    // dump would otherwise come back as ~56 error replies.
+    if (*args == '=')
+        return ParseStatus::kUnknown;
     switch (best->kind) {
     case ArgKind::kNone:
         if (*args != '\0')

@@ -33,14 +33,15 @@ class PwmIO {
         return fPulseUs;
     }
 
-    bool manualActive(uint32_t now) const { return manualPercent(now) != 0; }
-
     // Pulse mapped to -100..100 around neutral, deadband-gated, scaled by
-    // #DPINPUTSPEED. 0 when neutral, inside the deadband, or stale.
+    // #DPINPUTSPEED. 0 when neutral, inside the deadband, stale, or the
+    // calibration is misordered (min >= max would wrap the deadband math).
     int8_t manualPercent(uint32_t now) const {
         uint16_t us = pulseUs(now);
         if (us == 0)
             return 0;
+        if (fSettings.pwmMinUs >= fSettings.pwmMaxUs)
+            return 0; // misordered calibration: fail neutral, not wrapped
         uint16_t band = static_cast<uint16_t>(
             (uint32_t)(fSettings.pwmMaxUs - fSettings.pwmMinUs) * fSettings.pwmDeadbandPct / 100);
         int32_t delta = static_cast<int32_t>(us) - fSettings.pwmNeutralUs;
@@ -66,6 +67,10 @@ class PwmIO {
     void drivePercent(int8_t pct) {
         int32_t halfSpan = pct >= 0 ? fSettings.pwmMaxUs - fSettings.pwmNeutralUs
                                     : fSettings.pwmNeutralUs - fSettings.pwmMinUs;
+        if (halfSpan <= 0) { // misordered calibration: neutral, never reversed
+            writePulseUs(fSettings.pwmNeutralUs);
+            return;
+        }
         writePulseUs(static_cast<uint16_t>(fSettings.pwmNeutralUs + halfSpan * pct / 100));
     }
 

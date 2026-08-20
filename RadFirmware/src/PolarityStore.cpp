@@ -2,13 +2,16 @@
 
 #include "PolarityStore.h"
 
+#include "Settings.h"
+
 #include <Preferences.h>
 
 namespace rad {
 namespace {
 // Same namespace as the settings blob (different key), so #DPZERO/#DPFACTORY
 // clear the learned polarity too — see the header for why that is intended.
-constexpr const char* kNamespace = "rad";
+// The shared constant makes the coupling structural, not a comment.
+constexpr const char* kNamespace = kNvsNamespace;
 constexpr const char* kKey = "dirsign";
 } // namespace
 

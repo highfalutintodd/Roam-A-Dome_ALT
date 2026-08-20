@@ -46,10 +46,10 @@ bool WcbLink::begin(const RadSettings& s, const char* fwVersion) {
 
 // ESP-NOW RX task (core 0): flag or copy, nothing else — no NVS/flash/motor.
 void WcbLink::onCommand(uint8_t senderId, const char* command) {
-    ++gWcb.fStats.rx;
+    gWcb.fStats.rx = gWcb.fStats.rx + 1; // volatile: no deprecated ++ on volatile
     if (strncmp(command, "?STOP", 5) == 0 || strncmp(command, "&SABE,ESTOP", 11) == 0) {
         gWcb.fEstop = true; // polled by the motor output stage every loop
-        ++gWcb.fStats.estops;
+        gWcb.fStats.estops = gWcb.fStats.estops + 1;
         return;
     }
     if (command[0] != ':' && command[0] != '#')
@@ -58,7 +58,7 @@ void WcbLink::onCommand(uint8_t senderId, const char* command) {
     line.senderId = senderId;
     strlcpy(line.text, command, sizeof(line.text));
     if (gWcb.fQueue == nullptr || xQueueSend(gWcb.fQueue, &line, 0) != pdTRUE)
-        ++gWcb.fStats.dropped;
+        gWcb.fStats.dropped = gWcb.fStats.dropped + 1;
 }
 
 void WcbLink::onStatus(uint8_t wcbId, bool online) {

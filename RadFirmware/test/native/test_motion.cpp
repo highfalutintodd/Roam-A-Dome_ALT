@@ -7,17 +7,8 @@ using namespace rad;
 
 namespace {
 
-uint32_t midRng2(uint32_t lo, uint32_t hi) {
-    return (lo + hi) / 2;
-}
-
-void feedFrame(SensorRing& sr, int deg, uint32_t now) {
-    char buf[16];
-    std::snprintf(buf, sizeof(buf), "#DP@%d\r\n", deg);
-    for (const char* p = buf; *p; ++p)
-        sr.feed(static_cast<uint8_t>(*p), now);
-    sr.tick(now);
-}
+using radtest::feedFrame;
+constexpr MotionController::RandomFn midRng2 = &radtest::midRng;
 
 MotionController::Inputs in(uint32_t now, int16_t pos, uint32_t samples,
                             bool valid = true, bool manual = false, bool jumped = false) {
@@ -349,4 +340,251 @@ TEST(motion_spin_runs_without_sensor) {
     CHECK_EQ(out, -30);
     mc.spin(0); // R0 = stop
     CHECK_EQ(mc.tick(in(1020, 0, 0, false)), 0);
+}
+
+// ---- regression tests for the 2026-08 code-review fixes --------------------
+
+TEST(motion_watchdog_times_out_on_flicker_hunt) {
+    // Same-side sensor flicker (never straddling the target) used to count as
+    // "progress" forever: the position changed every sample, the two-crossing
+    // latch never fired (no sign flip across the target), and the dome pulsed
+    // min-speed indefinitely. Progress is now an approach watermark, so a hunt
+    // that never gets CLOSER faults within timeoutSec.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveToAbsolute(215, 0, 0, true);
+    uint32_t now = 0, samples = 0;
+    mc.tick(in(now, 195, ++samples)); // dist 20: driving
+    bool faulted = false;
+    for (int i = 0; i < 70 && !faulted; ++i) {
+        now += 100;
+        mc.tick(in(now, (i % 2) ? 195 : 213, ++samples)); // 213 in-arc, 195 out
+        faulted = mc.fault() == MotionController::Fault::kTimeout;
+    }
+    CHECK(faulted);
+    CHECK(mc.state() == MotionController::State::kIdle);
+    CHECK(!mc.busy());
+}
+
+TEST(motion_watchdog_times_out_driving_away_from_target) {
+    // Wrong learned polarity drives the dome AWAY from the target; movement
+    // used to refresh the watchdog, so no fault ever fired and the dome hunted
+    // around the antipode at full speed forever.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveToAbsolute(90, 0, 0, true);
+    uint32_t now = 0, samples = 0;
+    int16_t pos = 60;
+    bool faulted = false;
+    for (int i = 0; i < 70 && !faulted; ++i) {
+        now += 100;
+        pos = normalizeDeg(pos - 3); // moving away, 30 deg/s
+        mc.tick(in(now, pos, ++samples));
+        faulted = mc.fault() == MotionController::Fault::kTimeout;
+    }
+    CHECK(faulted);
+}
+
+TEST(motion_timeout_zero_disables_watchdog) {
+    // #DPTIMEOUT0 is documented as "0 disables"; it used to fault every move on
+    // the first tick instead.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.tuning.timeoutSec = 0;
+    mc.moveToAbsolute(180, 0, 0, true);
+    uint32_t now = 0, samples = 0;
+    for (int i = 0; i < 100; ++i) {
+        now += 100;
+        int8_t out = mc.tick(in(now, 90, ++samples)); // stuck at 90, fresh samples
+        CHECK(out > 0);                               // still driving
+    }
+    CHECK(mc.state() == MotionController::State::kTarget);
+    CHECK(mc.fault() == MotionController::Fault::kNone);
+}
+
+TEST(motion_stalled_tracking_inside_arc_faults_instead_of_hanging) {
+    // The drive-0 freeze class: the dome sits inside the arrival arc while the
+    // tracker rejects every frame (accepted counter frozen), so the dwell can
+    // never complete. The move must fault within timeoutSec — never hang in
+    // kTarget with busy() latched until someone touches the stick.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveToAbsolute(100, 0, 0, true);
+    uint32_t now = 0;
+    mc.tick(in(now, 98, 5)); // one fresh in-arc sample: dwell 1 of 3
+    for (int i = 0; i < 70 && mc.fault() == MotionController::Fault::kNone; ++i) {
+        now += 100;
+        mc.tick(in(now, 98, 5)); // sample counter frozen from here on
+    }
+    CHECK(mc.fault() == MotionController::Fault::kTimeout);
+    CHECK(!mc.busy());
+}
+
+TEST(motion_spin_respects_speed_bounds) {
+    // :DPR bypassed clampSpeed entirely: #DPMAXSPEED did not cap it, and a
+    // below-minimum spin held the motor energised too weak to turn the dome.
+    MotionController mc(midRng2);
+    mc.tuning.maxSpeed = 30;
+    uint32_t now = 0, samples = 0;
+    mc.spin(100);
+    CHECK_EQ(mc.tick(in(now += 20, 0, ++samples)), 30);
+    mc.spin(-100);
+    CHECK_EQ(mc.tick(in(now += 20, 0, ++samples)), -30);
+    mc.spin(10); // below minSpeed (15): stop, like legacy's sub-minimum zeroing
+    CHECK(mc.state() == MotionController::State::kIdle);
+    CHECK_EQ(mc.tick(in(now += 20, 0, ++samples)), 0);
+}
+
+TEST(motion_antipode_jitter_does_not_widen_deadband) {
+    // signedCircularDelta flips sign at the target's ANTIPODE too: jitter near
+    // 180-away used to count as two crossings and latch the wide arc before the
+    // move even started, silently costing up to fudgeMax-fudge degrees.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveToAbsolute(0, 0, 0, true);
+    uint32_t now = 0, samples = 0;
+    mc.tick(in(now += 100, 179, ++samples)); // antipode jitter: d = +179
+    mc.tick(in(now += 100, 181, ++samples)); // d = -179 (would have been cross 1)
+    mc.tick(in(now += 100, 179, ++samples)); // d = +179 (would have latched wide)
+    // Clean approach: at 8 deg out (inside fudgeMax=18, outside fudge=5) the
+    // arc must still be tight, i.e. the controller keeps driving.
+    mc.tick(in(now += 100, 90, ++samples));
+    int8_t out = mc.tick(in(now += 100, 8, ++samples));
+    CHECK(out != 0);
+    // And it still lands: three fresh samples inside the tight arc.
+    for (int i = 0; i < 3; ++i)
+        mc.tick(in(now += 100, 2, ++samples));
+    CHECK(mc.arrived());
+}
+
+TEST(motion_jump_does_not_count_as_deadband_crossing) {
+    // An adopted tracker jump teleports the BELIEVED position across the
+    // target; that is not a physical swing and must not feed the oscillation
+    // detector (it used to combine with one real overshoot to latch wide).
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveToAbsolute(200, 0, 0, true);
+    uint32_t now = 0, samples = 0;
+    mc.tick(in(now += 100, 230, ++samples));                          // approach, d=+30
+    mc.tick(in(now += 100, 185, ++samples, true, false, true));       // JUMP across target
+    mc.tick(in(now += 100, 195, ++samples));                          // real crossing 1 (d=-5.. below fudge? use 190)
+    mc.tick(in(now += 100, 190, ++samples));                          // d=-10: side -1
+    mc.tick(in(now += 100, 208, ++samples));                          // d=+8: one real flip
+    int8_t out = mc.tick(in(now += 100, 208, ++samples));
+    CHECK(out != 0); // arc still tight at 8 deg out: no premature "arrived" hold
+}
+
+TEST(motion_relative_move_aborts_on_jump) {
+    // BEHAVIOR §7: a confirmed tracker jump ABORTS an in-progress relative move
+    // with an error (the delta was measured from a disowned start point);
+    // absolute moves re-plan instead (covered elsewhere).
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveRelative(/*fromPos=*/100, /*delta=*/-90, 0, 0, true); // -> absolute 10
+    CHECK_EQ(mc.target(), 10);
+    uint32_t now = 0, samples = 0;
+    mc.tick(in(now += 20, 100, ++samples));
+    mc.tick(in(now += 20, 60, ++samples, true, false, /*jumped=*/true));
+    CHECK(mc.fault() == MotionController::Fault::kJump);
+    CHECK(mc.state() == MotionController::State::kIdle);
+    CHECK(!mc.busy());
+}
+
+TEST(motion_sequence_suppresses_idle_automation) {
+    // A running sequence's W steps leave the controller idle; automation must
+    // not schedule its own moves into that window.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.tuning.autoMode = true;
+    mc.tuning.idleMs = 0;
+    uint32_t now = 10000, samples = 0;
+    for (int i = 0; i < 200; ++i) {
+        now += 100;
+        MotionController::Inputs i2 = in(now, 100, ++samples);
+        i2.suppressAutomation = true; // sequence active (e.g. inside a W step)
+        mc.tick(i2);
+        CHECK(mc.state() == MotionController::State::kIdle);
+    }
+}
+
+TEST(motion_settle_delay_after_arrival) {
+    // #DPTARGETMIN/#DPTARGETMAX: after a targeted move arrives, automation
+    // waits out the settle window before planning again.
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.tuning.autoMode = true;
+    mc.tuning.idleMs = 0;
+    mc.tuning.targetMinS = 4;
+    mc.tuning.targetMaxS = 4;
+    mc.tuning.autoMinS = 1;
+    mc.tuning.autoMaxS = 1;
+    uint32_t now = 5000, samples = 0;
+    mc.moveToAbsolute(100, 0, 0, true);
+    for (int i = 0; i < 3; ++i)
+        mc.tick(in(now += 20, 100, ++samples)); // in-arc: dwell to arrival
+    CHECK(mc.arrived());
+    // Inside the 4 s settle window nothing may even be SCHEDULED; after it,
+    // the 1 s auto delay runs and a move starts. Check at 3.5 s: still idle.
+    uint32_t arrivedAt = now;
+    while (now - arrivedAt < 3500) {
+        mc.tick(in(now += 100, 100, ++samples));
+        CHECK(mc.state() == MotionController::State::kIdle);
+    }
+    // By 4 s (settle) + 1 s (autoMin..Max) + slack, the random move is running.
+    while (now - arrivedAt < 5600 && mc.state() == MotionController::State::kIdle)
+        mc.tick(in(now += 100, 100, ++samples));
+    CHECK(mc.state() == MotionController::State::kTarget);
+}
+
+TEST(motion_home_mode_accepts_wide_arrival_rest) {
+    // A hunted home-seek legitimately rests anywhere inside its latched arc;
+    // homeMode must NOT measure that rest point against the tight fudge and
+    // re-seek forever (seek -> hunt -> rest off-home -> repeat).
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 200;
+    mc.tuning.homeMode = true;
+    mc.tuning.idleMs = 0;
+    mc.tuning.homeMinS = 1;
+    mc.tuning.homeMaxS = 1;
+    uint32_t now = 5000, samples = 0;
+    mc.seekHome(0);
+    // Oscillate around home to latch the wide arc: 210 -> 190 -> 210 (two
+    // crossings at ±10), then rest at 208 (inside the latched arc).
+    mc.tick(in(now += 100, 210, ++samples));
+    mc.tick(in(now += 100, 190, ++samples));
+    mc.tick(in(now += 100, 210, ++samples));
+    for (int i = 0; i < 5 && !mc.arrived(); ++i)
+        mc.tick(in(now += 100, 208, ++samples));
+    CHECK(mc.arrived());
+    // Idle at 208 (8 deg off home, inside the granted arc): no re-seek, ever.
+    for (int i = 0; i < 100; ++i) {
+        mc.tick(in(now += 100, 208, ++samples));
+        CHECK(mc.state() == MotionController::State::kIdle);
+    }
+    // But a real displacement beyond the granted arc re-arms the home seek.
+    bool sought = false;
+    for (int i = 0; i < 30 && !sought; ++i) {
+        mc.tick(in(now += 100, 150, ++samples));
+        sought = mc.state() == MotionController::State::kTarget;
+    }
+    CHECK(sought);
+}
+
+TEST(motion_latch_sizes_arc_from_measured_swing) {
+    // The latched deadband is sized from the swing actually observed (+margin),
+    // not slammed to fudgeMax: a small oscillation gives up only a little
+    // precision. Swing here peaks at ±8, so the arc latches ~10 — a rest point
+    // 12 deg out must still be driven at, not accepted as "arrived".
+    MotionController mc(midRng2);
+    mc.tuning.homePos = 0;
+    mc.moveToAbsolute(200, 0, 0, true);
+    uint32_t now = 0, samples = 0;
+    mc.tick(in(now += 100, 208, ++samples)); // +8
+    mc.tick(in(now += 100, 192, ++samples)); // -8: crossing 1
+    mc.tick(in(now += 100, 208, ++samples)); // +8: crossing 2 -> latch ~10
+    int8_t out = mc.tick(in(now += 100, 212, ++samples)); // 12 out: beyond latched arc
+    CHECK(out != 0);
+    for (int i = 0; i < 4 && !mc.arrived(); ++i)
+        mc.tick(in(now += 100, 208, ++samples)); // 8 out: inside latched arc
+    CHECK(mc.arrived());
 }

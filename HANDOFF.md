@@ -207,3 +207,76 @@ updated the Sabé remote to a new version at the start, which was a red herring 
 Sabé sent the correct K-ARDS commands (`#DPAUTO0` / `:DPA323` / `<CA1011>`); the
 fault was entirely dome-side. `SensorRing.h` cites `DomeSensorFirmware32.ino` by
 name — that's how the sensor firmware was identified and located on GitHub.
+
+---
+
+## 2026-08-20 — full-codebase review: 37 confirmed findings fixed
+
+A max-effort review (12 finder angles + adversarial verification + gap sweep)
+of the committed RadFirmware tree confirmed 37 defects; all are fixed, with 20
+new host regression tests locking them in (84 total, all green; both build
+profiles compile).
+
+**Flash guidance:** only the **RaD board** needs reflashing — both profiles
+changed. The **sensor ring is untouched** (comment-only edit; no reflash).
+Stored settings survive the reflash: the blob migrates v3→v4 automatically
+(wcbPassword grew to the WCB 39-char limit; `#DPFUDGEMAX` added).
+
+Highlights, roughly by severity:
+
+- **Hang/freeze class:** the armed plausibility guard at 0% drive could freeze
+  tracking and hang a move in `target` forever with no fault. The watchdog now
+  measures real progress (approach + dwell watermarks), runs inside the
+  arrival arc, and faults instead of hanging; `#DPTIMEOUT0` now genuinely
+  disables it instead of insta-faulting every move.
+- **Safety:** `?STOP` now latches from console and command serial (was
+  mesh-only); the e-stop latch releases only on a VALIDATED `:DP` motion
+  command (garbage used to clear it); `:DPR` spin now respects
+  `#DPMINSPEED`/`#DPMAXSPEED`.
+- **Motor path:** passthrough no longer raw-forwards motor frames alongside
+  RAD's own synthesized (inverted) stream; bulk dumps (`#DPCONFIG`/`#DPL`) no
+  longer stall the loop and starve the Syren keepalive (TX buffering + yield
+  hook that keeps the keepalive and sensor drain running).
+- **Sensor guard:** new earned-coast drive model — plausibility decays over a
+  coast tail earned by how long the drive was actually on. A real jog's
+  coasting tail is tracked; a blip earns no tail, so the ~299/304 alias and
+  ±35° wander stay rejected. Closes the old 2°/10° blind band between the
+  parked-hold and the active-at-0% cap. `#DPSENSN1` requires a second
+  agreeing sample again; warm-up counts as an accepted sample.
+- **Deadband latch:** crossing detector no longer counts antipode flips,
+  adopted jumps, or single outliers as oscillation; the latched arc is sized
+  from the measured swing, clamped `[fudge, fudgeMax]`, never narrowing;
+  `#DPFUDGEMAX` is a real setting (raise with `#DPMINSPEED` on heavy domes);
+  homeMode accepts a wide-arrival rest instead of re-seeking forever.
+- **Protocol:** `:DPAR/:DPDR/:DPRR/:DPHR` random forms implemented with
+  legacy semantics (incl. the shifted speed args); `M` one-shot works;
+  a new `:DP` line replaces the in-flight move; relative moves abort on a
+  confirmed jump (`POSITION JUMP` fault, per §7); position reports are
+  home-relative again (legacy client contract — K-ARDS/R2 Touch see the old
+  values); mode chars report the engaged mode; motion faults reach Sabé as
+  `&RAD,FAULT,<code>`; bare `#DPHOMEPOS` averages 1 s (D4); wait steps print
+  `WAIT SECONDS/MILLIS` again.
+- **Validation:** settings and sequence args are range-checked (baud, Syren
+  addresses 128–135, negative speeds, slot/pin aliasing, PWM cross-field
+  ordering); mesh RX takes full 199-char commands; wcbPassword no longer
+  silently truncates.
+- **Echo hygiene:** everything RAD emits now parses as a silent no-op if it
+  echoes back over the mesh — `#DPCONFIG` uses `KEY=VALUE`, `#DPL` lists
+  `#DPS<n>=:<body>` (capture_config.py replays both by stripping the first
+  '='), and the parser drops all `=`-forms quietly. A `#DPL` echo used to
+  silently RE-STORE every slot to NVS.
+- **Hygiene:** `#DPAUTO`/`#DPHOME` toggles are RAM-only (no flash wear), dead
+  code removed, tuning defaults have one source (RadSettings), duplicated
+  constants unified, stray iCloud "Makefile 2" duplicates removed,
+  `#DPAUTOSAFETY` documented as compat-only (v2 always requires a valid
+  sensor), `#DPAUTORESTART`/`#DPTARGETMIN/MAX` actually implemented.
+
+### Alias-defense ownership (rule going forward)
+
+**The stable-alias class belongs to the RaD-side motor-plausibility guard,
+not the sensor debounce.** Raw-code debouncing structurally cannot tell a
+stable wrong code from a parked dome — only drive-awareness can — so do not
+raise `kStableReads` past 6 chasing aliases; the sensor layer owns
+transition/flicker rejection at its latency-optimal setting, and RaD owns
+stable lies. (The old "go to 8 if a stray one gets by" escalation is retired;
+see PositionDebounce.h.)

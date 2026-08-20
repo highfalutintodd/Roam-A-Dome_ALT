@@ -160,3 +160,69 @@ TEST(seq_field_sequence_from_sabe_library) {
     s = seq.tick(now + 2001);
     CHECK(s != nullptr && s->op == 'D' && s->a == -50);
 }
+
+// ---- regression tests for the 2026-08 code-review fixes --------------------
+
+TEST(parse_rejects_out_of_range_step_args) {
+    // exec-stage casts used to silently narrow these: A90,-50 ran at FULL
+    // speed (uint8 wrap), A33000 landed 16 deg off (mod-65536 wrap), S300
+    // played stored slot 44 and T260 toggled pin 4 (mod-256 alias).
+    SeqStep s;
+    CHECK(!parseSeqStep("A90,-50", 7, s));
+    CHECK(!parseSeqStep("A90,300", 7, s));
+    CHECK(!parseSeqStep("A33000", 6, s));
+    CHECK(!parseSeqStep("D-70000", 7, s));
+    CHECK(!parseSeqStep("S300", 4, s));
+    CHECK(!parseSeqStep("T260", 4, s));
+    CHECK(!parseSeqStep("T0", 2, s));
+    CHECK(!parseSeqStep("H150", 4, s));
+    // In-range forms still parse.
+    CHECK(parseSeqStep("A-359", 5, s));
+    CHECK(parseSeqStep("A90,100,100", 11, s));
+    CHECK(parseSeqStep("AR,40", 5, s));
+    CHECK(parseSeqStep("D-90", 4, s));
+    CHECK(parseSeqStep("S100", 4, s));
+    CHECK(parseSeqStep("T8", 2, s));
+    CHECK(parseSeqStep("H100", 4, s));
+}
+
+TEST(sequencer_surfaces_wait_start_events) {
+    // Waits are absorbed inside tick(); the one-shot event lets the caller
+    // print the legacy "WAIT SECONDS/MILLIS" console feedback.
+    Sequencer seq(midRng);
+    uint32_t ms;
+    bool wasMillis;
+    CHECK(seq.start("W2:A90", 1000));
+    CHECK(seq.tick(1000) == nullptr); // enters the wait
+    CHECK(seq.consumeWaitStarted(ms, wasMillis));
+    CHECK_EQ(ms, 2000u);
+    CHECK(!wasMillis);
+    CHECK(!seq.consumeWaitStarted(ms, wasMillis)); // one-shot
+    CHECK(seq.tick(3001) != nullptr);              // A90 after the wait
+
+    CHECK(seq.start("WM500:H", 1000));
+    seq.tick(1000);
+    CHECK(seq.consumeWaitStarted(ms, wasMillis));
+    CHECK_EQ(ms, 500u);
+    CHECK(wasMillis);
+}
+
+TEST(parse_random_forms_carry_shifted_args) {
+    // ":DPAR,40" has no degree arg, so the tail shifts down one slot: speed
+    // lands in b at argc 1 (the exec stage reads it from there).
+    SeqStep s;
+    CHECK(parseSeqStep("AR,40", 5, s));
+    CHECK(s.random);
+    CHECK_EQ(s.argc, 1);
+    CHECK_EQ(s.b, 40);
+    CHECK(parseSeqStep("AR,40,80", 8, s));
+    CHECK_EQ(s.argc, 2);
+    CHECK_EQ(s.b, 40);
+    CHECK_EQ(s.c, 80);
+    CHECK(parseSeqStep("RR", 2, s));
+    CHECK(s.random);
+    CHECK(parseSeqStep("HR", 2, s));
+    CHECK(s.random);
+    CHECK(parseSeqStep("AM90", 4, s));
+    CHECK(s.oneshot);
+}

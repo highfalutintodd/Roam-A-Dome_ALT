@@ -10,7 +10,14 @@ namespace rad {
 // sizeof. Alignment padding can absorb an inserted field, so the size check
 // alone cannot detect a layout shift (field-shifted garbage loaded fine once:
 // old wcbOct2 0x3C read back as "WCBEN=60").
-constexpr uint16_t kSettingsVersion = 3;
+// MIGRATION RULE: only ever grow the struct at the END (extend the last array /
+// append fields) — load() migrates older versions by prefix-copy, which is only
+// valid while every existing field keeps its offset.
+constexpr uint16_t kSettingsVersion = 4;
+
+// NVS namespace shared by the settings blob and the learned-polarity key, so
+// #DPZERO/#DPFACTORY (which clear the namespace) wipe both together.
+constexpr const char* kNvsNamespace = "rad";
 
 // Defaults are seeded from a live droid's captured legacy config, so a fresh
 // flash behaves like a working install rather than a generic build. Re-capture
@@ -84,7 +91,16 @@ struct RadSettings {
     uint8_t wcbQuantity = 3;       // #DPWCBQTY
     uint8_t wcbChannel = 1;        // #DPWCBCH
     bool wcbChecksum = true;       // #DPWCBCS
-    char wcbPassword[33] = "";     // #DPWCBPW
+    // 39 chars + NUL: WCB_Client's own limit (structPassword[40], "max 39
+    // chars") — a shorter cap here silently truncated 33-39 char fleet
+    // passwords and the mesh join failed with no error pointing at it.
+    char wcbPassword[40] = "";     // #DPWCBPW
+
+    // --- v4 additions (appended: see MIGRATION RULE above) -------------------
+    // Adaptive-deadband ceiling for the overshoot-oscillation latch
+    // (MotionController). Must exceed the overshoot amplitude at the configured
+    // #DPMINSPEED or the limit cycle survives the latch; == fudge disables.
+    uint8_t fudgeMax = 18;         // #DPFUDGEMAX
 };
 
 #ifdef ARDUINO
