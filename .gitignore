@@ -1,19 +1,13 @@
-.DS_Store
-About Roam-A-Dome.rtfd/
-
-# Captured serial/debug logs — kept locally, not tracked.
-logs/
-
-# iCloud Drive "conflict copy" duplicates (e.g. "Foo 2.cpp", "sketch 3.yaml").
-# arduino-cli compiles every .cpp under src/, so a stray "Foo 2.cpp" alongside
-# "Foo.cpp" defines every symbol twice and breaks the link. Keep them out.
-* [0-9].*
-* [0-9]/
-*.pyc
-__pycache__/
-releases/
-docs/capture/*.log
+# Host-test build artifacts
 RadFirmware/test/native/rad_tests
-RadFirmware/test/native/rad_tests.dSYM/
 RadFirmware/test/native/parse_cli
-RadFirmware/test/native/parse_cli.dSYM/
+*.dSYM/
+
+# Arduino build output
+RadFirmware/build/
+
+# macOS / iCloud
+.DS_Store
+# iCloud sync-conflict copies ("name 2.ext") — delete these, never commit them
+* 2
+* 2.*
